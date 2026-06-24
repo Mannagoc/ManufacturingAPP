@@ -4,39 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e0c0a">
-<title>Manna · Shift Verification</title>
+<title>Manna · Crumb Stock Flow</title>
 <style>
   :root{
     --bg:#0e0c0a; --panel:#151210; --panel2:#1b1713; --raise:#221c16;
     --ink:#ece6da; --dim:#b0a692; --faint:#6f665a;
     --amber:#e8a13a; --amber-dim:#a9772a; --amber-soft:rgba(232,161,58,.13);
-    --elec:#46c2d6; --ok:#6cb83f; --err:#d8453c; --ember:#d98a3d;
+    --steel:#7fa8c9; --steel-soft:rgba(127,168,201,.13);
+    --in:#6cb83f; --in-soft:rgba(108,184,63,.12);
+    --out:#d98a3d; --out-soft:rgba(217,138,61,.13);
+    --elec:#46c2d6; --err:#d8453c;
     --line:#2a2520; --line2:#39322a;
     --r:14px; --r-sm:10px;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
-    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
   body{ padding-bottom:48px; }
   .tnum{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; cursor:pointer; }
-  a{ color:var(--elec); }
 
-  /* ---- top bar / shift slip ---- */
-  header{ position:sticky; top:0; z-index:30; background:linear-gradient(180deg,#0e0c0a,rgba(14,12,10,.92));
-    backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
-  .bar{ max-width:1180px; margin:0 auto; padding:13px 18px 14px; }
-  .brandrow{ display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
-  .brand{ flex:1 1 auto; min-width:200px; }
+  header{ position:sticky; top:0; z-index:30; background:linear-gradient(180deg,#0e0c0a,rgba(14,12,10,.92)); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+  .bar{ max-width:1080px; margin:0 auto; padding:13px 18px 14px; }
   .eyebrow{ font-size:10.5px; letter-spacing:.32em; text-transform:uppercase; color:var(--amber-dim); font-weight:700; }
   .brand h1{ margin:3px 0 0; font-size:20px; font-weight:800; letter-spacing:-.01em; }
-  .brand h1 b{ color:var(--amber); font-weight:800; }
-  .conn{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; color:var(--faint);
-    margin-top:5px; font-family:var(--mono); }
-  .dot{ width:8px; height:8px; border-radius:50%; background:var(--faint); box-shadow:0 0 0 3px rgba(255,255,255,.02); }
-  .dot.live{ background:var(--ok); box-shadow:0 0 8px 1px rgba(108,184,63,.6); }
+  .brand h1 b{ color:var(--amber); }
+  .conn{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; color:var(--faint); margin-top:5px; font-family:var(--mono); }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--faint); }
+  .dot.live{ background:var(--in); box-shadow:0 0 8px 1px rgba(108,184,63,.6); }
   .dot.load{ background:var(--amber); animation:pulse 1s infinite; }
   .dot.err{ background:var(--err); box-shadow:0 0 8px 1px rgba(216,69,60,.5); }
   @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
@@ -44,578 +40,271 @@
   .controls{ display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-top:13px; }
   .ctl{ display:flex; flex-direction:column; gap:5px; }
   .ctl label{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:700; padding-left:1px; }
-  input[type=date]{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink);
-    border-radius:var(--r-sm); padding:9px 11px; font-family:var(--mono); font-size:14px; color-scheme:dark; }
-  .seg{ display:inline-flex; background:var(--panel2); border:1px solid var(--line2); border-radius:var(--r-sm); padding:3px; gap:3px; }
-  .seg button{ border:none; background:none; color:var(--dim); font-weight:700; font-size:13.5px;
-    padding:7px 16px; border-radius:7px; letter-spacing:.02em; }
-  .seg button.on{ background:var(--amber); color:#1c1306; }
-  .reload{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; background:var(--raise);
-    border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 14px; font-weight:650; font-size:13.5px; }
-  .reload:active{ transform:translateY(1px); }
+  input[type=date]{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 11px; font-family:var(--mono); font-size:14px; color-scheme:dark; }
+  .quick{ display:inline-flex; gap:6px; }
+  .quick button{ background:var(--raise); border:1px solid var(--line2); color:var(--dim); border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:650; }
+  .quick button.on{ background:var(--amber); color:#1c1306; border-color:transparent; }
+  .reload{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; background:var(--raise); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 14px; font-weight:650; font-size:13.5px; }
   .reload svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; }
+  .reload:active{ transform:translateY(1px); }
 
-  /* ---- layout ---- */
-  main{ max-width:1180px; margin:0 auto; padding:18px; }
+  main{ max-width:1080px; margin:0 auto; padding:18px; }
 
-  .summary{ display:flex; gap:9px; flex-wrap:wrap; margin-bottom:18px; }
-  .schip{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 14px; }
-  .schip .v{ font-family:var(--mono); font-size:21px; font-weight:600; line-height:1; }
-  .schip .k{ font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); margin-top:5px; }
-  .schip.flag .v{ color:var(--amber); }
-  .schip.flag.zero .v{ color:var(--ok); }
+  /* store balance cards */
+  .stores{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
+  .store{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; position:relative; overflow:hidden; }
+  .store::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--steel); }
+  .store.bike::before{ background:var(--out); }
+  .store .nm{ font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:750; }
+  .store .net{ font-family:var(--mono); font-size:30px; font-weight:600; margin-top:8px; line-height:1; }
+  .store .net small{ font-size:14px; color:var(--faint); }
+  .store .io{ display:flex; gap:16px; margin-top:11px; }
+  .store .io div{ font-size:12px; color:var(--faint); }
+  .store .io b{ font-family:var(--mono); font-weight:600; }
+  .store .io .pin{ color:var(--in); } .store .io .pout{ color:var(--out); }
 
-  .grouphdr{ display:flex; align-items:center; gap:12px; margin:20px 2px 11px; }
-  .grouphdr b{ font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); font-weight:800; }
-  .grouphdr .ln{ flex:1; height:1px; background:var(--line); }
+  .note{ font-size:12px; color:var(--faint); margin:4px 2px 16px; line-height:1.5; }
 
-  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:10px; }
-  .tile{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line);
-    border-radius:var(--r); padding:14px 15px 13px; text-align:left; color:var(--ink); position:relative;
-    transition:border-color .12s, transform .08s; min-height:104px; display:flex; flex-direction:column; }
-  .tile:hover{ border-color:var(--line2); }
-  .tile:active{ transform:translateY(1px); }
-  .tile.hot{ border-color:#5a431f; }
-  .tile.idle{ opacity:.62; }
-  .banner{ background:var(--amber-soft); border:1px solid #4a3717; color:var(--amber);
-    border-radius:var(--r-sm); padding:11px 14px; font-size:13px; margin:2px 2px 4px; line-height:1.45; }
-  .tile .mn{ font-weight:750; font-size:15.5px; letter-spacing:-.01em; }
-  .tile .mk{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin-top:2px; }
-  .tile .cnt{ margin-top:auto; display:flex; align-items:baseline; gap:7px; padding-top:12px; }
-  .tile .cnt b{ font-family:var(--mono); font-size:30px; font-weight:600; line-height:.9; }
-  .tile .cnt span{ font-size:11px; color:var(--faint); }
-  .tile .miss{ position:absolute; top:12px; right:12px; display:inline-flex; align-items:center; gap:4px;
-    background:var(--amber-soft); color:var(--amber); border:1px solid #5a431f; border-radius:20px;
-    font-size:10.5px; font-weight:750; padding:2px 8px; }
-  .tile .miss svg{ width:10px; height:10px; }
+  .filters{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .seg{ display:inline-flex; background:var(--panel2); border:1px solid var(--line2); border-radius:9px; padding:3px; gap:3px; }
+  .seg button{ border:none; background:none; color:var(--dim); font-weight:650; font-size:13px; padding:6px 13px; border-radius:6px; }
+  .seg button.on{ background:var(--amber); color:#1c1306; }
+  .count{ margin-left:auto; font-size:12.5px; color:var(--faint); font-family:var(--mono); }
 
-  /* ---- runs / detail ---- */
-  .back{ display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--dim);
-    font-weight:650; font-size:14px; padding:4px 2px; margin-bottom:6px; }
-  .back svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.2; }
-  .dethead{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin:2px 2px 16px; }
-  .dethead h2{ margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; }
-  .dethead .sub{ color:var(--faint); font-family:var(--mono); font-size:13px; }
+  /* ledger */
+  .ledger{ display:flex; flex-direction:column; gap:0; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+  .ev{ display:grid; grid-template-columns:64px 1fr auto; gap:12px; align-items:center; padding:13px 15px; border-top:1px solid var(--line); background:var(--panel); }
+  .ev:first-child{ border-top:none; }
+  .ev .dir{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+  .badge{ font-size:10.5px; font-weight:800; letter-spacing:.08em; padding:3px 8px; border-radius:6px; text-transform:uppercase; }
+  .badge.in{ background:var(--in-soft); color:var(--in); border:1px solid #2f5320; }
+  .badge.out{ background:var(--out-soft); color:var(--out); border:1px solid #5a3f1c; }
+  .ev .body .where{ font-weight:700; font-size:15px; }
+  .ev .body .arrow{ color:var(--faint); font-weight:400; }
+  .ev .body .meta{ font-size:12px; color:var(--faint); margin-top:3px; }
+  .ev .body .meta .gchip{ display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--steel); background:var(--steel-soft); border:1px solid #2f4658; border-radius:5px; padding:1px 6px; margin-right:7px; }
+  .ev .body .meta .gchip.b{ color:var(--out); background:var(--out-soft); border-color:#5a3f1c; }
+  .ev .amt{ text-align:right; white-space:nowrap; }
+  .ev .amt .kg{ font-family:var(--mono); font-size:17px; font-weight:600; }
+  .ev .amt .kg.in{ color:var(--in); } .ev .amt .kg.out{ color:var(--out); }
+  .ev .amt .bal{ font-size:11px; color:var(--faint); margin-top:3px; font-family:var(--mono); }
+  .ev .amt .when{ font-size:11px; color:var(--faint); margin-top:2px; font-family:var(--mono); }
 
-  .run{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r); margin-bottom:14px; overflow:hidden; }
-  .run.dirty{ border-color:var(--amber-dim); }
-  .run.flagmiss{ border-left:3px solid var(--amber); }
-  .runtop{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:13px 16px; background:var(--panel2); border-bottom:1px solid var(--line); }
-  .runtop .tline{ font-family:var(--mono); font-size:15px; font-weight:600; }
-  .runtop .chips{ display:flex; gap:6px; flex-wrap:wrap; }
-  .chip{ font-size:11px; font-weight:700; letter-spacing:.04em; padding:3px 9px; border-radius:6px;
-    background:var(--raise); color:var(--dim); border:1px solid var(--line2); }
-  .chip.q{ background:var(--elec); color:#06222a; border-color:transparent; }
-  .chip.warn{ background:var(--amber-soft); color:var(--amber); border-color:#5a431f; }
-  .runtop .spacer{ flex:1; }
-  .runid{ font-family:var(--mono); font-size:10.5px; color:var(--faint); }
-
-  .fields{ display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:12px 14px; padding:16px; }
-  .f{ display:flex; flex-direction:column; gap:5px; min-width:0; }
-  .f label{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:700; }
-  .f input,.f select{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink);
-    border-radius:8px; padding:8px 10px; font-size:14px; font-family:var(--sans); width:100%; color-scheme:dark; }
-  .f input.tn{ font-family:var(--mono); }
-  .f input:focus,.f select:focus{ outline:none; border-color:var(--amber-dim); box-shadow:0 0 0 3px var(--amber-soft); }
-  .f.changed input,.f.changed select{ border-color:var(--amber); }
-  .f.core label{ color:var(--amber-dim); }
-  .f.miss input{ border-color:#5a431f; background:rgba(232,161,58,.05); }
-
-  .runfoot{ display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line); flex-wrap:wrap; }
-  .toggle{ background:none; border:none; color:var(--dim); font-size:12.5px; font-weight:650; padding:4px 0; }
-  .toggle:hover{ color:var(--ink); }
-  .savestate{ font-size:12px; color:var(--faint); font-family:var(--mono); }
-  .savestate.ok{ color:var(--ok); }
-  .savestate.err{ color:var(--err); }
-  .save{ margin-left:auto; background:var(--amber); color:#1c1306; border:none; border-radius:9px;
-    padding:9px 20px; font-weight:750; font-size:14px; }
-  .save:disabled{ background:var(--raise); color:var(--faint); }
-  .save:not(:disabled):active{ transform:translateY(1px); }
-
-  .ro{ display:flex; gap:18px; flex-wrap:wrap; padding:10px 16px 14px; border-top:1px solid var(--line); }
-  .ro div{ font-size:11px; color:var(--faint); }
-  .ro b{ color:var(--dim); font-family:var(--mono); font-weight:600; }
-
-  /* ---- empty / states ---- */
-  .empty{ text-align:center; padding:64px 20px; color:var(--faint); }
+  .empty{ text-align:center; padding:60px 20px; color:var(--faint); }
   .empty svg{ width:40px; height:40px; stroke:var(--line2); fill:none; stroke-width:1.5; margin-bottom:14px; }
   .empty b{ display:block; color:var(--dim); font-size:16px; font-weight:700; margin-bottom:5px; }
-  .empty p{ margin:0 auto; max-width:320px; font-size:13.5px; line-height:1.5; }
+  .empty p{ margin:0 auto; max-width:340px; font-size:13.5px; line-height:1.5; }
 
-  /* ---- toast ---- */
-  #toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
-    background:var(--raise); border:1px solid var(--line2); color:var(--ink); padding:11px 18px;
-    border-radius:11px; font-size:13.5px; font-weight:600; opacity:0; pointer-events:none;
-    transition:opacity .2s, transform .2s; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.5); max-width:90vw; }
-  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-  #toast.ok{ border-color:#2f5320; } #toast.err{ border-color:#5a2620; }
-
-  @media (max-width:560px){
-    .bar{ padding:12px 14px; } main{ padding:14px; }
-    .reload{ margin-left:0; }
-    .controls{ gap:9px; }
-  }
-  @media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
+  @media (max-width:560px){ .bar{padding:12px 14px} main{padding:14px} .reload{margin-left:0} .ev{grid-template-columns:58px 1fr auto; gap:9px; padding:12px} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
 <header>
   <div class="bar">
-    <div class="brandrow">
-      <div class="brand">
-        <div class="eyebrow">Production Audit</div>
-        <h1>Manna <b>Shift Verification</b></h1>
-        <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">connecting…</span></div>
-      </div>
+    <div class="brand">
+      <div class="eyebrow">Stock Movement</div>
+      <h1>Crumb <b>Stock Flow</b></h1>
+      <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">connecting…</span></div>
     </div>
     <div class="controls">
-      <div class="ctl">
-        <label for="dateIn">Day</label>
-        <input type="date" id="dateIn">
-      </div>
-      <div class="ctl">
-        <label>Shift</label>
-        <div class="seg" id="shiftSeg">
-          <button data-shift="Day">Day</button>
-          <button data-shift="Night">Night</button>
+      <div class="ctl"><label for="fromIn">From</label><input type="date" id="fromIn"></div>
+      <div class="ctl"><label for="toIn">To</label><input type="date" id="toIn"></div>
+      <div class="ctl"><label>Quick range</label>
+        <div class="quick" id="quick">
+          <button data-q="7">7d</button><button data-q="30">30d</button><button data-q="all">All</button>
         </div>
       </div>
-      <button class="reload" id="reloadBtn" title="Reload from database">
-        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>
-        Reload
-      </button>
+      <button class="reload" id="reloadBtn"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>Reload</button>
     </div>
   </div>
 </header>
 
 <main id="view"></main>
-<div id="toast"></div>
 
 <script>
 (function(){
   "use strict";
 
-  /* ===== Supabase connection (same project the shopfloor app writes to) ===== */
+  /* ===== Supabase (same project the shopfloor app writes to) ===== */
   var SUPABASE_URL  = "https://xqdmxfjmmazfpmsvbnjx.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZG14ZmptbWF6ZnBtc3Zibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MzE2MDcsImV4cCI6MjA5NzIwNzYwN30.tjR30i3Cdaz-6S2tr-7s5gvvOz24rTK0KyxW47itC6s";
-  function headers(extra){
-    var h={ "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON };
-    if(extra) for(var k in extra) h[k]=extra[k];
-    return h;
-  }
+  function headers(){ return { "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON }; }
 
-  /* ===== Machine roster (mirrors the shopfloor app) ===== */
-  var MACHINES=[
-    {id:"CRK",  name:"Cracker",        kind:"grind",      group:"Grinding line"},
-    {id:"GRD_K",name:"Grinder 1",      kind:"grind",      group:"Grinding line"},
-    {id:"GRD_S",name:"Grinder 2",      kind:"grind",      group:"Grinding line"},
-    {id:"GRD_O",name:"Soorya Grinder", kind:"grind",      group:"Grinding line"},
-    {id:"AC_A", name:"Autoclave A",    kind:"autoclave",  group:"Autoclaves"},
-    {id:"AC_M", name:"Autoclave M",    kind:"autoclave",  group:"Autoclaves"},
-    {id:"AC_N", name:"Autoclave N",    kind:"autoclave",  group:"Autoclaves"},
-    {id:"AC_O", name:"Autoclave O",    kind:"autoclave",  group:"Autoclaves"},
-    {id:"PR2",  name:"Pre-Refiner 2",  kind:"prerefiner", group:"Pre-Refiners"},
-    {id:"R1",   name:"Refiner 1",      kind:"refiner",    group:"Refiners"},
-    {id:"R3",   name:"Refiner 3",      kind:"refiner",    group:"Refiners"},
-    {id:"R4",   name:"Refiner 4",      kind:"refiner",    group:"Refiners"},
-    {id:"PR1",  name:"Pre-Refiner 1",  kind:"coarse",     group:"Coarse line"},
-    {id:"R2",   name:"Refiner 2",      kind:"coarse",     group:"Coarse line"}
-  ];
-  var GROUP_ORDER=["Autoclaves","Grinding line","Pre-Refiners","Refiners","Coarse line","Other"];
-  function machineById(id){ for(var i=0;i<MACHINES.length;i++) if(MACHINES[i].id===id) return MACHINES[i]; return null; }
-  function machineName(id){ var m=machineById(id); return m?m.name:(id||"Unknown"); }
-
-  var QUALITIES=["Special","SuperFine","Fine","Medium","DRC"];
-  var SUPERVISORS=["Mathai","Rahul","Devanand"];
-  var TYRES=[{v:"truck",l:"Truck tyre (30#)"},{v:"bike",l:"Bike tyre (20#)"}];
-
-  /* ===== Field model: how each runs column is shown & edited =====
-     core fields always render; the rest render when they hold a value
-     (or when "Show all fields" is on). read-only fields are context only. */
-  var CORE=["supervisor","shift","shift_date","started_at","ended_at"];
-  var FIELDS=[
-    {k:"supervisor", l:"Supervisor", t:"super"},
-    {k:"shift",      l:"Shift",      t:"select", opts:[{v:"Day",l:"Day"},{v:"Night",l:"Night"}]},
-    {k:"shift_date", l:"Shift date", t:"date"},
-    {k:"started_at", l:"Started",    t:"datetime"},
-    {k:"ended_at",   l:"Ended",      t:"datetime"},
-    {k:"batch_no",   l:"Batch no",   t:"text"},
-    {k:"quality",    l:"Quality",    t:"select", opts:QUALITIES.map(function(q){return {v:q,l:q};})},
-    {k:"formulation",l:"Formulation",t:"text"},
-    {k:"capacity",   l:"Capacity (kg)", t:"num"},
-    {k:"tyre_type",  l:"Tyre type",  t:"select", opts:TYRES.map(function(x){return {v:x.v,l:x.l};})},
-    {k:"mesh",       l:"Mesh",       t:"text"},
-    {k:"passes",     l:"Passes",     t:"num"},
-    {k:"runtime_min",l:"Run time (min)", t:"num"},
-    {k:"hours_run",  l:"Hours run",  t:"num"},
-    {k:"loaded_at",  l:"Loaded at",  t:"datetime"},
-    {k:"unloaded_at",l:"Unloaded at",t:"datetime"},
-    {k:"kwh",        l:"kWh",        t:"num"},
-    {k:"elec_start", l:"Meter start",t:"num"},
-    {k:"elec_end",   l:"Meter end",  t:"num"},
-    {k:"firewood_kg",l:"Firewood (kg)", t:"num"},
-    {k:"hour_start", l:"Hour-meter start", t:"num"},
-    {k:"hour_end",   l:"Hour-meter end",   t:"num"},
-    {k:"workers",    l:"Workers",    t:"num"},
-    {k:"weight_kg",  l:"Weight (kg)",t:"num"},
-    {k:"packed_sacks",l:"Packed sacks", t:"num"},
-    {k:"conv_in_kg", l:"Conv in (kg)",  t:"num"},
-    {k:"conv_out_kg",l:"Conv out (kg)", t:"num"},
-    {k:"leftout_in", l:"Leftout in",  t:"num"},
-    {k:"leftout_out",l:"Leftout out", t:"num"},
-    {k:"src1",       l:"Source 1",    t:"text"},
-    {k:"src2",       l:"Source 2",    t:"text"},
-    {k:"src3",       l:"Source 3",    t:"text"},
-    {k:"src4",       l:"Source 4",    t:"text"},
-    {k:"paired",     l:"Paired",      t:"bool"}
-  ];
-  var RO=["machine","machine_id","line","kind","device","id"];
+  /* ===== domain ===== */
+  // grinders that feed crumb into stock (Cracker does tyre prep only, no stock)
+  var CRUMB_GRINDERS={ "GRD_K":"Grinder 1", "GRD_S":"Grinder 2", "GRD_O":"Soorya Grinder" };
+  var MNAME={ "GRD_K":"Grinder 1","GRD_S":"Grinder 2","GRD_O":"Soorya Grinder","CRK":"Cracker",
+    "AC_A":"Autoclave A","AC_M":"Autoclave M","AC_N":"Autoclave N","AC_O":"Autoclave O",
+    "R1":"Refiner 1","R2":"Refiner 2","R3":"Refiner 3","R4":"Refiner 4","PR1":"Pre-Refiner 1","PR2":"Pre-Refiner 2" };
+  function mname(id){ return MNAME[id]||id||"Unknown"; }
+  // store keys: truck = Truck 30# (special line), bike = Bike 20# (coarse line)
+  var STORE={ truck:{label:"Truck crumb", grade:"30#", line:"special"}, bike:{label:"Bike crumb", grade:"20#", line:"coarse"} };
 
   /* ===== helpers ===== */
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
-  function isNum(t){ return t==="num"; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function populated(v){ return v!==null && v!==undefined && v!==""; }
+  function num(v){ var n=Number(v); return isNaN(n)?0:n; }
   function pad(n){ return (n<10?"0":"")+n; }
-  function isoToLocal(iso){ if(!iso) return ""; var d=new Date(iso); if(isNaN(d)) return ""; return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
-  function localToIso(v){ if(!v) return null; var d=new Date(v); return isNaN(d)?null:d.toISOString(); }
-  function fmtTime(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return "—"; return pad(d.getHours())+":"+pad(d.getMinutes()); }
   function todayISO(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-  function autoShiftNow(){
-    var d=new Date(), mins=d.getHours()*60+d.getMinutes(), date=todayISO(), shift;
-    if(mins>=510 && mins<1230){ shift="Day"; }                       // 08:30–20:30
-    else if(mins>=1230){ shift="Night"; }                            // after 20:30
-    else { shift="Night"; var y=new Date(d.getTime()-86400000); date=y.getFullYear()+"-"+pad(y.getMonth()+1)+"-"+pad(y.getDate()); }
-    return { date:date, shift:shift };
-  }
-  // normalized string form used for change-detection (per field type)
-  function normVal(t, v){
-    if(t==="datetime") return isoToLocal(v);
-    if(t==="bool") return v===true?"true":(v===false?"false":"");
-    if(v===null||v===undefined) return "";
-    return String(v);
-  }
-  // turn an input's normalized string back into a DB value
-  function toDb(t, s){
-    s=(s==null?"":String(s)).trim();
-    if(s==="") return null;
-    if(t==="num"){ var n=Number(s); return isNaN(n)?null:n; }
-    if(t==="datetime") return localToIso(s);
-    if(t==="bool") return s==="true"?true:(s==="false"?false:null);
-    return s;
-  }
+  function shiftDate(daysAgo){ var d=new Date(Date.now()-daysAgo*86400000); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function fmtWhen(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return String(iso); return pad(d.getDate())+"/"+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function kg(n){ return (Math.round(n*10)/10).toLocaleString(); }
 
   /* ===== state ===== */
-  var ST={ date:"", shift:"Day", runs:null, loading:false, error:"", machine:null };
-  var edits={};   // runId -> { showAll:bool }
+  var ST={ from:"", to:"", runs:null, loading:false, error:"", filter:"all", quick:"7" };
+
+  /* derive crumb store of an OUT (autoclave load) row: coarse line -> bike(20#), else truck(30#) */
+  function outStore(r){ return (String(r.line||"").toLowerCase()==="coarse") ? "bike" : "truck"; }
+  /* derive store of an IN (grinder) row from tyre type / mesh */
+  function inStore(r){
+    var t=String(r.tyre_type||"").toLowerCase();
+    if(t==="truck") return "truck"; if(t==="bike") return "bike";
+    var m=String(r.mesh||""); if(m.indexOf("30")>=0) return "truck"; if(m.indexOf("20")>=0) return "bike";
+    return "truck"; // grinder default
+  }
+
+  // Build chronological IN/OUT events from raw run rows
+  function buildEvents(runs){
+    var ev=[];
+    (runs||[]).forEach(function(r){
+      var mid=r.machine_id||"";
+      // OUT: an autoclave load consumes stock — signalled by a loaded_at timestamp + capacity
+      if(populated(r.loaded_at)){
+        var os=outStore(r);
+        ev.push({ type:"out", store:os, kg:num(r.capacity), ts:r.loaded_at||r.started_at||r.shift_date,
+          machineId:mid, machine:mname(mid), batch:r.batch_no||"", formulation:r.formulation||"",
+          shift:r.shift||"", shiftDate:r.shift_date||"", supervisor:r.supervisor||"" });
+      }
+      // IN: a crumb grinder run adds its shift weight into stock
+      if(CRUMB_GRINDERS[mid] && num(r.weight_kg)>0){
+        var is=inStore(r);
+        ev.push({ type:"in", store:is, kg:num(r.weight_kg), ts:r.ended_at||r.started_at||r.shift_date,
+          machineId:mid, machine:mname(mid), batch:"", formulation:"",
+          shift:r.shift||"", shiftDate:r.shift_date||"", supervisor:r.supervisor||"" });
+      }
+    });
+    // chronological ascending for running balance
+    ev.sort(function(a,b){ return tms(a.ts)-tms(b.ts); });
+    var bal={truck:0,bike:0};
+    ev.forEach(function(e){ bal[e.store]+=(e.type==="in"?e.kg:-e.kg); e.balAfter=Math.round(bal[e.store]*10)/10; });
+    return ev;
+  }
+  function tms(t){ if(!t) return 0; var d=new Date(t); var n=+d; if(!isNaN(n)) return n; return 0; }
+
+  function totals(ev){
+    var t={ truck:{in:0,out:0}, bike:{in:0,out:0} };
+    ev.forEach(function(e){ t[e.store][e.type]+=e.kg; });
+    return t;
+  }
 
   /* ===== data ===== */
-  function loadRuns(){
-    ST.loading=true; ST.error=""; setConn("load","loading "+ST.date+" · "+ST.shift+"…"); render();
-    var url=SUPABASE_URL+"/rest/v1/runs?select=*"
-      +"&shift_date=eq."+encodeURIComponent(ST.date)
-      +"&shift=eq."+encodeURIComponent(ST.shift)
-      +"&order=machine_id.asc,started_at.asc";
+  function load(){
+    ST.loading=true; ST.error=""; setConn("load","loading "+ST.from+" → "+ST.to+"…"); render();
+    var url=SUPABASE_URL+"/rest/v1/runs?select=machine_id,line,kind,batch_no,formulation,capacity,tyre_type,mesh,weight_kg,started_at,ended_at,loaded_at,shift,shift_date,supervisor"
+      +"&shift_date=gte."+encodeURIComponent(ST.from)
+      +"&shift_date=lte."+encodeURIComponent(ST.to)
+      +"&order=shift_date.asc";
     fetch(url,{ headers:headers() })
       .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+(t||"").slice(0,140)); }); return r.json(); })
-      .then(function(rows){
-        ST.runs=rows||[]; ST.loading=false;
-        setConn("live", ST.runs.length+" run"+(ST.runs.length===1?"":"s")+" · "+ST.date+" "+ST.shift);
-        render();
-      })
-      .catch(function(e){
-        ST.loading=false; ST.runs=[]; ST.error=String(e.message||e);
-        setConn("err","couldn't load — "+ST.error); render();
-      });
+      .then(function(rows){ ST.runs=rows||[]; ST.loading=false; setConn("live", ST.runs.length+" runs scanned"); render(); })
+      .catch(function(e){ ST.loading=false; ST.runs=[]; ST.error=String(e.message||e); setConn("err","couldn't load — "+ST.error); render(); });
   }
 
-  function saveRun(run, patch, node){
-    var state=node.querySelector(".savestate");
-    var btn=node.querySelector(".save");
-    btn.disabled=true; state.className="savestate"; state.textContent="saving…";
-    fetch(SUPABASE_URL+"/rest/v1/runs?id=eq."+encodeURIComponent(run.id),{
-      method:"PATCH",
-      headers:headers({ "Content-Type":"application/json", "Prefer":"return=representation" }),
-      body:JSON.stringify(patch)
-    }).then(function(r){
-      if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+(t||"").slice(0,160)); });
-      return r.json();
-    }).then(function(rows){
-      if(rows && rows.length){
-        var updated=rows[0];
-        for(var k in updated) run[k]=updated[k];
-        toast("Saved — "+machineName(run.machine_id)+" "+fmtTime(run.started_at),"ok");
-        rerenderRun(run);
-      } else {
-        // 200 OK but no row returned: the update matched nothing under current table policy
-        state.className="savestate err";
-        state.textContent="not saved — database returned no row (check table write permissions)";
-        btn.disabled=false;
-        toast("Not saved — the database accepted the request but changed no row. Likely a table-permission (RLS) block.","err");
-      }
-    }).catch(function(e){
-      state.className="savestate err"; state.textContent="save failed: "+String(e.message||e);
-      btn.disabled=false;
-      toast("Save failed — "+String(e.message||e),"err");
-    });
-  }
+  function setConn(cls,txt){ var d=document.getElementById("dot"), t=document.getElementById("connTxt");
+    d.className="dot "+(cls==="live"?"live":cls==="err"?"err":cls==="load"?"load":""); t.textContent=txt; }
 
-  /* ===== connection indicator ===== */
-  function setConn(cls, txt){
-    var dot=document.getElementById("dot"), t=document.getElementById("connTxt");
-    dot.className="dot "+(cls==="live"?"live":cls==="err"?"err":cls==="load"?"load":"");
-    t.textContent=txt;
-  }
-
-  /* ===== rendering ===== */
+  /* ===== render ===== */
   function render(){
     var v=document.getElementById("view");
-    if(ST.machine) v.innerHTML=renderDetail();
-    else v.innerHTML=renderOverview();
-    bind();
-  }
+    if(ST.loading){ v.innerHTML=block("M3 12a9 9 0 1 0 3-6.7L3 8","Loading…","Scanning runs from "+esc(ST.from)+" to "+esc(ST.to)+"."); return; }
+    if(ST.error){ v.innerHTML=block("M12 9v4M12 17h.01M10.3 4 2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2A1.5 1.5 0 0 0 21.4 18L13.7 4Z","Couldn\u2019t reach the database",esc(ST.error)+"<br><br>Check the connection and tap Reload."); return; }
 
-  function counts(){
-    var byM={}, miss={}, sups={}, total=0, totalMiss=0;
-    (ST.runs||[]).forEach(function(r){
-      var id=r.machine_id||"?";
-      byM[id]=(byM[id]||0)+1; total++;
-      var noSup = !populated(r.supervisor);
-      if(noSup){ miss[id]=(miss[id]||0)+1; totalMiss++; }
-      else sups[String(r.supervisor).trim()]=1;
-    });
-    return { byM:byM, miss:miss, total:total, totalMiss:totalMiss, sups:Object.keys(sups) };
-  }
+    var ev=buildEvents(ST.runs), t=totals(ev);
+    var shown=ev.filter(function(e){ return ST.filter==="all"||ST.filter===e.type; });
 
-  function renderOverview(){
-    if(ST.loading) return loadingBlock();
-    if(ST.error)   return errorBlock();
-    var c=counts();
+    var html=storeCards(t);
+    html+='<div class="note">Reconstructed from production runs: <b>in</b> = crumb produced by the grinders (Grinder 1/2 &amp; Soorya), '
+      +'<b>out</b> = crumb pulled from stock when an autoclave is loaded. Truck 30# feeds the special line; Bike 20# feeds the coarse line. '
+      +'Balances are the running total over the selected range only (pick <b>All</b> for the lifetime balance).</div>';
 
-    // summary strip
-    var html='<div class="summary">'
-      +'<div class="schip"><div class="v tnum">'+c.total+'</div><div class="k">runs logged</div></div>'
-      +'<div class="schip flag '+(c.totalMiss?"":"zero")+'"><div class="v tnum">'+c.totalMiss+'</div><div class="k">missing supervisor</div></div>'
-      +'<div class="schip"><div class="v tnum">'+c.sups.length+'</div><div class="k">supervisors</div></div>'
-      +'</div>';
-    if(c.sups.length) html+='<div style="margin:-6px 2px 4px;color:var(--faint);font-size:12.5px;font-family:var(--mono)">on shift: '+esc(c.sups.join(" · "))+'</div>';
+    html+='<div class="filters"><div class="seg" id="seg">'
+      +'<button data-f="all"'+(ST.filter==="all"?' class="on"':'')+'>All</button>'
+      +'<button data-f="in"'+(ST.filter==="in"?' class="on"':'')+'>In only</button>'
+      +'<button data-f="out"'+(ST.filter==="out"?' class="on"':'')+'>Out only</button>'
+      +'</div><span class="count">'+shown.length+' movement'+(shown.length===1?"":"s")+'</span></div>';
 
-    // banner when this shift has nothing logged — but still show the full machine list below
-    if(!c.total){
-      html+='<div class="banner">No runs logged for '+esc(ST.date)+' \u00b7 '+esc(ST.shift)+' yet. '
-        +'Pick another day or shift above, or tap a machine to confirm it\u2019s empty.</div>';
+    if(!shown.length){
+      html+=block("M3 7h18M3 12h18M3 17h18","No crumb movement in this range","Nothing was produced into or pulled from crumb stock for "+esc(ST.from)+" → "+esc(ST.to)+".");
+      v.innerHTML=html; bind(); return;
     }
 
-    // build groups: every known machine (so the list is always visible) + any unknown ids in data
-    var known={}; MACHINES.forEach(function(m){ known[m.id]=1; });
-    var groups={};
-    GROUP_ORDER.forEach(function(g){ groups[g]=[]; });
-    MACHINES.forEach(function(m){ (groups[m.group]||(groups[m.group]=[])).push(m); });
-    Object.keys(c.byM).forEach(function(id){ if(!known[id]) groups["Other"].push({id:id,name:id,kind:"unmatched",group:"Other"}); });
-
-    GROUP_ORDER.forEach(function(g){
-      var list=groups[g]; if(!list||!list.length) return;
-      html+='<div class="grouphdr"><b>'+esc(g)+'</b><div class="ln"></div></div><div class="grid">';
-      list.forEach(function(m){
-        var n=c.byM[m.id]||0, ms=c.miss[m.id]||0;
-        var cls="tile"+(n?"":" idle")+(ms?" hot":"");
-        var flag=ms?'<span class="miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 9v4M12 17h.01M10.3 4 2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2A1.5 1.5 0 0 0 21.4 18L13.7 4a1.5 1.5 0 0 0-2.6 0Z"/></svg>'+ms+'</span>':"";
-        html+='<button class="'+cls+'" data-mid="'+esc(m.id)+'">'+flag
-          +'<div class="mn">'+esc(m.name)+'</div><div class="mk">'+esc(m.kind)+'</div>'
-          +'<div class="cnt"><b>'+n+'</b><span>run'+(n===1?"":"s")+'</span></div></button>';
-      });
-      html+='</div>';
-    });
-    return html;
+    // newest first for the list (balAfter already computed chronologically)
+    var list=shown.slice().sort(function(a,b){ return tms(b.ts)-tms(a.ts); });
+    html+='<div class="ledger">'+list.map(evRow).join("")+'</div>';
+    v.innerHTML=html; bind();
   }
 
-  function renderDetail(){
-    var mid=ST.machine, m=machineById(mid);
-    var runs=(ST.runs||[]).filter(function(r){ return (r.machine_id||"?")===mid; });
-    var head='<button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg> All machines</button>'
-      +'<div class="dethead"><h2>'+esc(machineName(mid))+'</h2>'
-      +'<span class="sub">'+esc(ST.date)+' · '+esc(ST.shift)+' · '+runs.length+' run'+(runs.length===1?"":"s")+'</span></div>';
-    if(!runs.length){
-      return head+'<div class="empty"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
-        +'<b>No runs on this machine</b><p>'+esc(machineName(mid))+' has nothing logged for '+esc(ST.date)+' · '+esc(ST.shift)+'.</p></div>';
+  function storeCards(t){
+    function card(key){
+      var s=STORE[key], io=t[key], net=Math.round((io.in-io.out)*10)/10;
+      return '<div class="store '+(key==="bike"?"bike":"")+'">'
+        +'<div class="nm">'+esc(s.label)+' · '+esc(s.grade)+'</div>'
+        +'<div class="net tnum">'+(net>=0?"+":"")+kg(net)+' <small>kg net</small></div>'
+        +'<div class="io"><div>in <b class="pin">'+kg(io.in)+'</b> kg</div><div>out <b class="pout">'+kg(io.out)+'</b> kg</div></div>'
+        +'</div>';
     }
-    return head+runs.map(renderRun).join("");
+    return '<div class="stores">'+card("truck")+card("bike")+'</div>';
   }
 
-  function renderRun(run){
-    var miss=!populated(run.supervisor);
-    var chips=[];
-    if(populated(run.batch_no)) chips.push('<span class="chip">'+esc(run.batch_no)+'</span>');
-    if(populated(run.quality))  chips.push('<span class="chip q">'+esc(run.quality)+'</span>');
-    if(populated(run.formulation)) chips.push('<span class="chip">'+esc(run.formulation)+'</span>');
-    if(miss) chips.push('<span class="chip warn">no supervisor</span>');
-    var showAll=edits[run.id]&&edits[run.id].showAll;
-
-    var fieldsHtml=FIELDS.map(function(f){
-      var isCore=CORE.indexOf(f.k)>=0;
-      var has=populated(run[f.k]) || (f.t==="bool" && run[f.k]!==null && run[f.k]!==undefined);
-      if(!isCore && !has && !showAll) return "";
-      return fieldHtml(run, f, isCore);
-    }).join("");
-
-    var roHtml=RO.map(function(k){
-      if(!populated(run[k])) return "";
-      return '<div>'+esc(k.replace("_"," "))+' <b>'+esc(run[k])+'</b></div>';
-    }).join("");
-
-    return '<div class="run'+(miss?" flagmiss":"")+'" data-run="'+esc(run.id)+'">'
-      +'<div class="runtop">'
-        +'<span class="tline">'+fmtTime(run.started_at)+' → '+fmtTime(run.ended_at)+'</span>'
-        +'<div class="chips">'+chips.join("")+'</div>'
-        +'<span class="spacer"></span>'
-        +'<span class="runid">'+esc(String(run.id).slice(0,8))+'</span>'
-      +'</div>'
-      +'<div class="fields">'+fieldsHtml+'</div>'
-      +'<div class="runfoot">'
-        +'<button class="toggle" data-toggle="'+esc(run.id)+'">'+(showAll?"Hide empty fields":"Show all fields")+'</button>'
-        +'<span class="savestate"></span>'
-        +'<button class="save" disabled>Save changes</button>'
-      +'</div>'
-      +(roHtml?'<div class="ro">'+roHtml+'</div>':"")
+  function evRow(e){
+    var s=STORE[e.store], gradeCls=e.store==="bike"?"gchip b":"gchip";
+    var where = e.type==="in"
+      ? '<span class="where">'+esc(e.machine)+' <span class="arrow">\u2192 stock</span></span>'
+      : '<span class="where"><span class="arrow">stock \u2192</span> '+esc(e.machine)+'</span>';
+    var meta=[];
+    meta.push('<span class="'+gradeCls+'">'+esc(s.label.split(" ")[0])+' '+esc(s.grade)+'</span>');
+    if(e.type==="out" && e.batch) meta.push("batch "+esc(e.batch)+(e.formulation?" · "+esc(e.formulation):""));
+    if(e.shift) meta.push(esc(e.shift)+(e.shiftDate?" "+esc(e.shiftDate):""));
+    meta.push(e.supervisor?("\uD83D\uDC64 "+esc(e.supervisor)):'<span style="color:var(--amber)">no supervisor</span>');
+    return '<div class="ev">'
+      +'<div class="dir"><span class="badge '+e.type+'">'+(e.type==="in"?"In":"Out")+'</span></div>'
+      +'<div class="body">'+where+'<div class="meta">'+meta.join(" · ")+'</div></div>'
+      +'<div class="amt"><div class="kg '+e.type+'">'+(e.type==="in"?"+":"\u2212")+kg(e.kg)+'<span style="font-size:11px;color:var(--faint)"> kg</span></div>'
+        +'<div class="bal">bal '+kg(e.balAfter)+'</div>'
+        +'<div class="when">'+fmtWhen(e.ts)+'</div></div>'
       +'</div>';
   }
 
-  function fieldHtml(run, f, isCore){
-    var raw=run[f.k];
-    var miss=isCore && f.k==="supervisor" && !populated(raw);
-    var cls="f"+(isCore?" core":"")+(miss?" miss":"");
-    var ctrl;
-    if(f.t==="select" || f.t==="super" || f.t==="bool"){
-      var opts, cur=(raw==null?"":String(raw));
-      if(f.t==="super"){
-        var seen={}; opts=[{v:"",l:"—"}];
-        SUPERVISORS.forEach(function(s){ opts.push({v:s,l:s}); seen[s]=1; });
-        if(cur && !seen[cur]) opts.push({v:cur,l:cur});            // keep an unknown name as-is
-      } else if(f.t==="bool"){
-        opts=[{v:"",l:"—"},{v:"true",l:"Yes"},{v:"false",l:"No"}];
-        cur = raw===true?"true":(raw===false?"false":"");
-      } else {
-        opts=[{v:"",l:"—"}].concat(f.opts);
-      }
-      ctrl='<select data-field="'+f.k+'" data-type="'+f.t+'">'+opts.map(function(o){
-        return '<option value="'+esc(o.v)+'"'+(String(o.v)===cur?" selected":"")+'>'+esc(o.l)+'</option>';
-      }).join("")+'</select>';
-    } else {
-      var typeAttr = isNum(f.t)?'inputmode="decimal" class="tn"' : (f.t==="datetime")?'type="datetime-local"' : (f.t==="date")?'type="date"' : 'type="text"';
-      var val = f.t==="datetime" ? isoToLocal(raw) : (raw==null?"":String(raw));
-      ctrl='<input '+typeAttr+' data-field="'+f.k+'" data-type="'+f.t+'" value="'+esc(val)+'">';
-    }
-    return '<div class="'+cls+'" data-fwrap="'+f.k+'"><label>'+esc(f.l)+'</label>'+ctrl+'</div>';
+  function block(path,title,body){
+    return '<div class="empty"><svg viewBox="0 0 24 24"><path d="'+path+'"/></svg><b>'+title+'</b><p>'+body+'</p></div>';
   }
 
-  function loadingBlock(){
-    return '<div class="empty"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>'
-      +'<b>Loading shift data…</b><p>Fetching runs for '+esc(ST.date)+' · '+esc(ST.shift)+' from the database.</p></div>';
+  /* ===== controls ===== */
+  function applyQuick(q){
+    ST.quick=q;
+    if(q==="all"){ ST.from="2020-01-01"; ST.to=todayISO(); }
+    else { ST.from=shiftDate(parseInt(q,10)-1); ST.to=todayISO(); }
+    document.getElementById("fromIn").value=ST.from;
+    document.getElementById("toIn").value=ST.to;
+    syncQuick();
+    load();
   }
-  function errorBlock(){
-    return '<div class="empty"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 4 2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2A1.5 1.5 0 0 0 21.4 18L13.7 4Z"/></svg>'
-      +'<b>Couldn\u2019t reach the database</b><p>'+esc(ST.error)+'<br><br>Check the internet connection and tap Reload.</p></div>';
-  }
-
-  /* ===== change tracking & binding ===== */
-  function originalNorm(run, f){ return normVal(f.t, run[f.k]); }
-
-  function runDirty(node, run){
-    var changed=false;
-    node.querySelectorAll("[data-field]").forEach(function(el){
-      var k=el.getAttribute("data-field"), t=el.getAttribute("data-type");
-      var f={k:k,t:t};
-      var cur=String(el.value==null?"":el.value);
-      var orig=originalNorm(run, f);
-      var wrap=el.closest("[data-fwrap]");
-      if(cur!==orig){ changed=true; if(wrap) wrap.classList.add("changed"); }
-      else if(wrap) wrap.classList.remove("changed");
-    });
-    node.classList.toggle("dirty", changed);
-    var btn=node.querySelector(".save"); if(btn) btn.disabled=!changed;
-    var ss=node.querySelector(".savestate"); if(ss && !ss.classList.contains("err")) ss.textContent=changed?"unsaved changes":"";
-    return changed;
-  }
-
-  function buildPatch(node, run){
-    var patch={};
-    node.querySelectorAll("[data-field]").forEach(function(el){
-      var k=el.getAttribute("data-field"), t=el.getAttribute("data-type");
-      var cur=String(el.value==null?"":el.value);
-      var orig=normVal(t, run[k]);
-      if(cur!==orig) patch[k]=toDb(t, cur);
-    });
-    return patch;
-  }
-
-  function findRun(id){ for(var i=0;i<(ST.runs||[]).length;i++) if(String(ST.runs[i].id)===String(id)) return ST.runs[i]; return null; }
-
-  function rerenderRun(run){
-    var node=document.querySelector('.run[data-run="'+cssEsc(run.id)+'"]');
-    if(!node) return;
-    var tmp=document.createElement("div"); tmp.innerHTML=renderRun(run);
-    node.replaceWith(tmp.firstChild);
-    bindRun(document.querySelector('.run[data-run="'+cssEsc(run.id)+'"]'));
-  }
-  function cssEsc(s){ return String(s).replace(/["\\]/g,"\\$&"); }
-
-  function bindRun(node){
-    if(!node) return;
-    var id=node.getAttribute("data-run"), run=findRun(id);
-    if(!run) return;
-    node.querySelectorAll("[data-field]").forEach(function(el){
-      el.addEventListener("input", function(){ runDirty(node, run); });
-      el.addEventListener("change", function(){ runDirty(node, run); });
-    });
-    var tg=node.querySelector("[data-toggle]");
-    if(tg) tg.addEventListener("click", function(){
-      edits[id]=edits[id]||{}; edits[id].showAll=!edits[id].showAll; rerenderRun(run);
-    });
-    var sv=node.querySelector(".save");
-    if(sv) sv.addEventListener("click", function(){
-      var patch=buildPatch(node, run);
-      if(!Object.keys(patch).length){ return; }
-      saveRun(run, patch, node);
-    });
-  }
+  function syncQuick(){ document.querySelectorAll("#quick button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-q")===ST.quick); }); }
 
   function bind(){
-    var back=document.getElementById("backBtn");
-    if(back) back.addEventListener("click", function(){ ST.machine=null; render(); window.scrollTo(0,0); });
-    document.querySelectorAll("[data-mid]").forEach(function(b){
-      b.addEventListener("click", function(){ ST.machine=b.getAttribute("data-mid"); render(); window.scrollTo(0,0); });
-    });
-    document.querySelectorAll(".run").forEach(bindRun);
+    var seg=document.getElementById("seg");
+    if(seg) seg.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){ ST.filter=b.getAttribute("data-f"); render(); }); });
   }
 
-  /* ===== toast ===== */
-  var toastT=null;
-  function toast(msg, kind){
-    var el=document.getElementById("toast");
-    el.textContent=msg; el.className=(kind||"")+" show";
-    clearTimeout(toastT); toastT=setTimeout(function(){ el.className=el.className.replace("show","").trim(); }, 3200);
+  function init(){
+    applyQuick("7");                     // default: last 7 days
+    document.getElementById("fromIn").addEventListener("change",function(e){ if(e.target.value){ ST.from=e.target.value; ST.quick=""; syncQuick(); load(); } });
+    document.getElementById("toIn").addEventListener("change",function(e){ if(e.target.value){ ST.to=e.target.value; ST.quick=""; syncQuick(); load(); } });
+    document.querySelectorAll("#quick button").forEach(function(b){ b.addEventListener("click",function(){ applyQuick(b.getAttribute("data-q")); }); });
+    document.getElementById("reloadBtn").addEventListener("click", load);
   }
-
-  /* ===== header controls ===== */
-  function syncShiftSeg(){
-    document.querySelectorAll("#shiftSeg button").forEach(function(b){
-      b.classList.toggle("on", b.getAttribute("data-shift")===ST.shift);
-    });
-  }
-  function initControls(){
-    var di=document.getElementById("dateIn");
-    di.value=ST.date;
-    di.addEventListener("change", function(){ if(di.value){ ST.date=di.value; ST.machine=null; loadRuns(); } });
-    document.querySelectorAll("#shiftSeg button").forEach(function(b){
-      b.addEventListener("click", function(){ ST.shift=b.getAttribute("data-shift"); ST.machine=null; syncShiftSeg(); loadRuns(); });
-    });
-    document.getElementById("reloadBtn").addEventListener("click", function(){ loadRuns(); });
-  }
-
-  /* ===== boot ===== */
-  var a=autoShiftNow();
-  ST.date=a.date; ST.shift=a.shift;
-  initControls(); syncShiftSeg();
-  loadRuns();
+  init();
 })();
 </script>
 </body>
