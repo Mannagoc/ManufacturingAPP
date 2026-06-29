@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e0c0a">
-<title>Manna · Crumb Stock Flow</title>
+<title>Manna · Production Monitor</title>
 <style>
   :root{
     --bg:#0e0c0a; --panel:#151210; --panel2:#1b1713; --raise:#221c16;
@@ -13,7 +13,10 @@
     --steel:#7fa8c9; --steel-soft:rgba(127,168,201,.13);
     --in:#6cb83f; --in-soft:rgba(108,184,63,.12);
     --out:#d98a3d; --out-soft:rgba(217,138,61,.13);
-    --elec:#46c2d6; --err:#d8453c;
+    --violet:#b58be0; --violet-soft:rgba(181,139,224,.12);
+    --elec:#46c2d6; --elec-soft:rgba(70,194,214,.12);
+    --hot:#e5503f; --hot-soft:rgba(229,80,63,.13);
+    --err:#d8453c;
     --line:#2a2520; --line2:#39322a;
     --r:14px; --r-sm:10px;
     --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
@@ -26,7 +29,7 @@
   button{ font-family:inherit; cursor:pointer; }
 
   header{ position:sticky; top:0; z-index:30; background:linear-gradient(180deg,#0e0c0a,rgba(14,12,10,.92)); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
-  .bar{ max-width:1080px; margin:0 auto; padding:13px 18px 14px; }
+  .bar{ max-width:1080px; margin:0 auto; padding:13px 18px 0; }
   .eyebrow{ font-size:10.5px; letter-spacing:.32em; text-transform:uppercase; color:var(--amber-dim); font-weight:700; }
   .brand h1{ margin:3px 0 0; font-size:20px; font-weight:800; letter-spacing:-.01em; }
   .brand h1 b{ color:var(--amber); }
@@ -40,7 +43,8 @@
   .controls{ display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-top:13px; }
   .ctl{ display:flex; flex-direction:column; gap:5px; }
   .ctl label{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:700; padding-left:1px; }
-  input[type=date]{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 11px; font-family:var(--mono); font-size:14px; color-scheme:dark; }
+  input[type=date], input[type=number], select{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 11px; font-family:var(--mono); font-size:14px; color-scheme:dark; }
+  select{ font-family:var(--sans); }
   .quick{ display:inline-flex; gap:6px; }
   .quick button{ background:var(--raise); border:1px solid var(--line2); color:var(--dim); border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:650; }
   .quick button.on{ background:var(--amber); color:#1c1306; border-color:transparent; }
@@ -48,54 +52,83 @@
   .reload svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; }
   .reload:active{ transform:translateY(1px); }
 
+  /* tab bar */
+  .tabs{ max-width:1080px; margin:14px auto 0; padding:0 18px; display:flex; gap:4px; }
+  .tabs button{ position:relative; background:none; border:none; color:var(--faint); font-weight:700; font-size:13.5px; letter-spacing:.01em; padding:11px 15px 13px; border-radius:9px 9px 0 0; }
+  .tabs button .ic{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; vertical-align:-3px; margin-right:7px; }
+  .tabs button.on{ color:var(--amber); }
+  .tabs button.on::after{ content:""; position:absolute; left:10px; right:10px; bottom:0; height:2px; background:var(--amber); border-radius:2px; }
+  .tabs button:hover:not(.on){ color:var(--dim); }
+
   main{ max-width:1080px; margin:0 auto; padding:18px; }
 
-  /* store balance cards */
-  .stores{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
-  .store{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; position:relative; overflow:hidden; }
-  .store::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--steel); }
-  .store.bike::before{ background:var(--out); }
-  .store .nm{ font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:750; }
-  .store .net{ font-family:var(--mono); font-size:30px; font-weight:600; margin-top:8px; line-height:1; }
-  .store .net small{ font-size:14px; color:var(--faint); }
-  .store .io{ display:flex; gap:16px; margin-top:11px; }
-  .store .io div{ font-size:12px; color:var(--faint); }
-  .store .io b{ font-family:var(--mono); font-weight:600; }
-  .store .io .pin{ color:var(--in); } .store .io .pout{ color:var(--out); }
-
   .note{ font-size:12px; color:var(--faint); margin:4px 2px 16px; line-height:1.5; }
+  .note b{ color:var(--dim); }
 
-  .filters{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
-  .seg{ display:inline-flex; background:var(--panel2); border:1px solid var(--line2); border-radius:9px; padding:3px; gap:3px; }
-  .seg button{ border:none; background:none; color:var(--dim); font-weight:650; font-size:13px; padding:6px 13px; border-radius:6px; }
-  .seg button.on{ background:var(--amber); color:#1c1306; }
-  .count{ margin-left:auto; font-size:12.5px; color:var(--faint); font-family:var(--mono); }
+  /* contextual sub-controls */
+  .subctl{ display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .subctl .ctl select{ min-width:150px; }
+  .poschips{ display:inline-flex; gap:6px; flex-wrap:wrap; }
+  .poschips button{ background:var(--panel2); border:1px solid var(--line2); color:var(--dim); border-radius:8px; padding:8px 13px; font-size:13px; font-weight:700; }
+  .poschips button.on{ color:#1c1306; border-color:transparent; }
 
-  /* ledger */
-  .ledger{ display:flex; flex-direction:column; gap:0; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
-  .ev{ display:grid; grid-template-columns:64px 1fr auto; gap:12px; align-items:center; padding:13px 15px; border-top:1px solid var(--line); background:var(--panel); }
-  .ev:first-child{ border-top:none; }
-  .ev .dir{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
-  .badge{ font-size:10.5px; font-weight:800; letter-spacing:.08em; padding:3px 8px; border-radius:6px; text-transform:uppercase; }
-  .badge.in{ background:var(--in-soft); color:var(--in); border:1px solid #2f5320; }
-  .badge.out{ background:var(--out-soft); color:var(--out); border:1px solid #5a3f1c; }
-  .ev .body .where{ font-weight:700; font-size:15px; }
-  .ev .body .arrow{ color:var(--faint); font-weight:400; }
-  .ev .body .meta{ font-size:12px; color:var(--faint); margin-top:3px; }
-  .ev .body .meta .gchip{ display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--steel); background:var(--steel-soft); border:1px solid #2f4658; border-radius:5px; padding:1px 6px; margin-right:7px; }
-  .ev .body .meta .gchip.b{ color:var(--out); background:var(--out-soft); border-color:#5a3f1c; }
+  /* metric cards */
+  .metrics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:14px; }
+  .metric{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; position:relative; overflow:hidden; }
+  .metric::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,var(--steel)); }
+  .metric .nm{ font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:750; }
+  .metric .big{ font-family:var(--mono); font-size:27px; font-weight:600; margin-top:8px; line-height:1.05; }
+  .metric .big small{ font-size:13px; color:var(--faint); font-weight:600; }
+  .metric .sub{ font-size:11.5px; color:var(--faint); margin-top:6px; }
+  .metric.hero{ grid-column:span 1; }
+  .metric.hero .big{ font-size:31px; color:var(--amber); }
+
+  /* chart */
+  .chartwrap{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:14px 12px 8px; margin-bottom:14px; }
+  .chart svg{ width:100%; height:auto; display:block; }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; padding:6px 6px 2px; font-size:12px; color:var(--dim); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:11px; height:3px; border-radius:2px; display:inline-block; }
+  .legend i.dash{ height:0; border-top:2px dashed var(--hot); width:14px; }
+
+  /* tables / ledger */
+  .ledger{ display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+  .dayhead{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 15px; background:var(--raise); border-top:1px solid var(--line); }
+  .dayhead:first-child{ border-top:none; }
+  .dayhead .d{ font-weight:800; font-size:13.5px; letter-spacing:.02em; }
+  .dayhead .tot{ font-size:11.5px; color:var(--faint); font-family:var(--mono); display:flex; gap:13px; flex-wrap:wrap; }
+  .dayhead .tot b{ color:var(--dim); font-weight:600; }
+  .ev{ display:grid; grid-template-columns:96px 1fr auto; gap:12px; align-items:center; padding:12px 15px; border-top:1px solid var(--line); background:var(--panel); }
+  .ev .mc{ font-weight:750; font-size:13.5px; }
+  .ev .mc small{ display:block; color:var(--faint); font-size:11px; font-weight:600; margin-top:2px; font-family:var(--mono); }
+  .ev .body .ident{ font-size:14.5px; }
+  .ev .body .meta{ font-size:11.5px; color:var(--faint); margin-top:3px; }
+  .chip{ display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:700; border-radius:5px; padding:2px 7px; margin-right:6px; }
+  .chip.batch{ color:var(--amber); background:var(--amber-soft); border:1px solid #5a3f1c; }
+  .chip.shift{ color:var(--steel); background:var(--steel-soft); border:1px solid #2f4658; }
+  .chip.coarse{ color:var(--out); background:var(--out-soft); border:1px solid #5a3f1c; }
+  .chip.q{ color:var(--in); background:var(--in-soft); border:1px solid #2f5320; }
   .ev .amt{ text-align:right; white-space:nowrap; }
-  .ev .amt .kg{ font-family:var(--mono); font-size:17px; font-weight:600; }
-  .ev .amt .kg.in{ color:var(--in); } .ev .amt .kg.out{ color:var(--out); }
-  .ev .amt .bal{ font-size:11px; color:var(--faint); margin-top:3px; font-family:var(--mono); }
-  .ev .amt .when{ font-size:11px; color:var(--faint); margin-top:2px; font-family:var(--mono); }
+  .ev .amt .kg{ font-family:var(--mono); font-size:16px; font-weight:600; }
+  .ev .amt .en{ font-size:11px; color:var(--faint); margin-top:3px; font-family:var(--mono); }
 
-  .empty{ text-align:center; padding:60px 20px; color:var(--faint); }
+  /* simple data table (efficiency contributors) */
+  table.tbl{ width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+  table.tbl th, table.tbl td{ text-align:left; padding:10px 13px; border-top:1px solid var(--line); font-size:13px; }
+  table.tbl th{ background:var(--raise); color:var(--dim); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:750; border-top:none; }
+  table.tbl td.n{ text-align:right; font-family:var(--mono); }
+  table.tbl tr.totrow td{ background:var(--panel2); font-weight:700; border-top:1px solid var(--line2); }
+
+  .empty{ text-align:center; padding:56px 20px; color:var(--faint); }
   .empty svg{ width:40px; height:40px; stroke:var(--line2); fill:none; stroke-width:1.5; margin-bottom:14px; }
   .empty b{ display:block; color:var(--dim); font-size:16px; font-weight:700; margin-bottom:5px; }
-  .empty p{ margin:0 auto; max-width:340px; font-size:13.5px; line-height:1.5; }
+  .empty p{ margin:0 auto; max-width:360px; font-size:13.5px; line-height:1.5; }
 
-  @media (max-width:560px){ .bar{padding:12px 14px} main{padding:14px} .reload{margin-left:0} .ev{grid-template-columns:58px 1fr auto; gap:9px; padding:12px} }
+  @media (max-width:560px){
+    .bar{padding:12px 14px 0} main{padding:14px} .reload{margin-left:0}
+    .tabs{padding:0 8px} .tabs button{padding:11px 10px 13px; font-size:12.5px}
+    .ev{grid-template-columns:74px 1fr auto; gap:9px; padding:11px}
+  }
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
 </style>
 </head>
@@ -103,8 +136,8 @@
 <header>
   <div class="bar">
     <div class="brand">
-      <div class="eyebrow">Stock Movement</div>
-      <h1>Crumb <b>Stock Flow</b></h1>
+      <div class="eyebrow">Plant Telemetry</div>
+      <h1>Production <b>Monitor</b></h1>
       <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">connecting…</span></div>
     </div>
     <div class="controls">
@@ -112,12 +145,17 @@
       <div class="ctl"><label for="toIn">To</label><input type="date" id="toIn"></div>
       <div class="ctl"><label>Quick range</label>
         <div class="quick" id="quick">
-          <button data-q="7">7d</button><button data-q="30">30d</button><button data-q="all">All</button>
+          <button data-q="7">7d</button><button data-q="30">30d</button><button data-q="90">90d</button><button data-q="all">All</button>
         </div>
       </div>
       <button class="reload" id="reloadBtn"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>Reload</button>
     </div>
   </div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="history" class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>Daily history</button>
+    <button data-tab="bearings"><svg class="ic" viewBox="0 0 24 24"><path d="M12 14.5V6"/><circle cx="12" cy="17.5" r="3.4"/><path d="M9 6a3 3 0 0 1 6 0"/></svg>Bearing temps</button>
+    <button data-tab="efficiency"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>Efficiency</button>
+  </nav>
 </header>
 
 <main id="view"></main>
@@ -132,14 +170,15 @@
   function headers(){ return { "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON }; }
 
   /* ===== domain ===== */
-  // grinders that feed crumb into stock (Cracker does tyre prep only, no stock)
-  var CRUMB_GRINDERS={ "GRD_K":"Grinder 1", "GRD_S":"Grinder 2", "GRD_O":"Soorya Grinder" };
   var MNAME={ "GRD_K":"Grinder 1","GRD_S":"Grinder 2","GRD_O":"Soorya Grinder","CRK":"Cracker",
     "AC_A":"Autoclave A","AC_M":"Autoclave M","AC_N":"Autoclave N","AC_O":"Autoclave O",
     "R1":"Refiner 1","R2":"Refiner 2","R3":"Refiner 3","R4":"Refiner 4","PR1":"Pre-Refiner 1","PR2":"Pre-Refiner 2" };
   function mname(id){ return MNAME[id]||id||"Unknown"; }
-  // store keys: truck = Truck 30# (special line), bike = Bike 20# (coarse line)
-  var STORE={ truck:{label:"Truck crumb", grade:"30#", line:"special"}, bike:{label:"Bike crumb", grade:"20#", line:"coarse"} };
+  function mshort(id){ var n=mname(id); return n; }
+  var QORDER=["Special","SuperFine","Fine","Medium","DRC"];
+  var POSCOLOR={ "1":"var(--steel)","2":"var(--in)","3":"var(--amber)","4":"var(--violet)" };
+  var POSHEX={ "1":"#7fa8c9","2":"#6cb83f","3":"#e8a13a","4":"#b58be0" };
+  var THRESHOLD=80; // °C bearing limit
 
   /* ===== helpers ===== */
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
@@ -147,162 +186,338 @@
   function num(v){ var n=Number(v); return isNaN(n)?0:n; }
   function pad(n){ return (n<10?"0":"")+n; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-  function shiftDate(daysAgo){ var d=new Date(Date.now()-daysAgo*86400000); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function daysAgoISO(n){ var d=new Date(Date.now()-n*86400000); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function tms(t){ if(!t) return 0; var d=new Date(t); var n=+d; return isNaN(n)?0:n; }
   function fmtWhen(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return String(iso); return pad(d.getDate())+"/"+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes()); }
-  function kg(n){ return (Math.round(n*10)/10).toLocaleString(); }
+  function fmtHM(iso){ var d=new Date(iso); if(isNaN(d)) return ""; return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDay(iso){ if(!iso) return "—"; var p=String(iso).slice(0,10).split("-"); if(p.length<3) return String(iso); var d=new Date(p[0],+p[1]-1,p[2]); if(isNaN(d)) return String(iso); var wd=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]; return wd+" "+(+p[2])+" "+MON[+p[1]-1]; }
+  function n1(n){ return (Math.round(n*10)/10); }
+  function kg(n){ return n1(n).toLocaleString(); }
+  function money(n){ return n1(n).toLocaleString(); }
+
+  /* man-hours for a run: workers × running hours (fall back to runtime minutes) */
+  function manHours(r){ var h=num(r.hours_run); if(!h) h=num(r.runtime_min)/60; return num(r.workers)*h; }
+  function runTs(r){ return tms(r.ended_at||r.unloaded_at||r.loaded_at||r.started_at||r.shift_date); }
+  function runDay(r){ if(populated(r.shift_date)) return String(r.shift_date).slice(0,10); var t=runTs(r); if(!t) return "—"; var d=new Date(t); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
 
   /* ===== state ===== */
-  var ST={ from:"", to:"", runs:null, loading:false, error:"", filter:"all", quick:"7" };
-
-  /* derive crumb store of an OUT (autoclave load) row: coarse line -> bike(20#), else truck(30#) */
-  function outStore(r){ return (String(r.line||"").toLowerCase()==="coarse") ? "bike" : "truck"; }
-  /* derive store of an IN (grinder) row from tyre type / mesh */
-  function inStore(r){
-    var t=String(r.tyre_type||"").toLowerCase();
-    if(t==="truck") return "truck"; if(t==="bike") return "bike";
-    var m=String(r.mesh||""); if(m.indexOf("30")>=0) return "truck"; if(m.indexOf("20")>=0) return "bike";
-    return "truck"; // grinder default
-  }
-
-  // Build chronological IN/OUT events from raw run rows
-  function buildEvents(runs){
-    var ev=[];
-    (runs||[]).forEach(function(r){
-      var mid=r.machine_id||"";
-      // OUT: an autoclave load consumes stock — signalled by a loaded_at timestamp + capacity
-      if(populated(r.loaded_at)){
-        var os=outStore(r);
-        ev.push({ type:"out", store:os, kg:num(r.capacity), ts:r.loaded_at||r.started_at||r.shift_date,
-          machineId:mid, machine:mname(mid), batch:r.batch_no||"", formulation:r.formulation||"",
-          shift:r.shift||"", shiftDate:r.shift_date||"", supervisor:r.supervisor||"" });
-      }
-      // IN: a crumb grinder run adds its shift weight into stock
-      if(CRUMB_GRINDERS[mid] && num(r.weight_kg)>0){
-        var is=inStore(r);
-        ev.push({ type:"in", store:is, kg:num(r.weight_kg), ts:r.ended_at||r.started_at||r.shift_date,
-          machineId:mid, machine:mname(mid), batch:"", formulation:"",
-          shift:r.shift||"", shiftDate:r.shift_date||"", supervisor:r.supervisor||"" });
-      }
-    });
-    // chronological ascending for running balance
-    ev.sort(function(a,b){ return tms(a.ts)-tms(b.ts); });
-    var bal={truck:0,bike:0};
-    ev.forEach(function(e){ bal[e.store]+=(e.type==="in"?e.kg:-e.kg); e.balAfter=Math.round(bal[e.store]*10)/10; });
-    return ev;
-  }
-  function tms(t){ if(!t) return 0; var d=new Date(t); var n=+d; if(!isNaN(n)) return n; return 0; }
-
-  function totals(ev){
-    var t={ truck:{in:0,out:0}, bike:{in:0,out:0} };
-    ev.forEach(function(e){ t[e.store][e.type]+=e.kg; });
-    return t;
-  }
+  var ST={ from:"", to:"", runs:null, bearings:null, loading:false, error:"", quick:"30",
+           tab:"history",
+           bMachine:"", bPos:"all",
+           eBatch:"", eQual:"__all__", tariff:7 };
 
   /* ===== data ===== */
   function load(){
     ST.loading=true; ST.error=""; setConn("load","loading "+ST.from+" → "+ST.to+"…"); render();
-    var url=SUPABASE_URL+"/rest/v1/runs?select=machine_id,line,kind,batch_no,formulation,capacity,tyre_type,mesh,weight_kg,started_at,ended_at,loaded_at,shift,shift_date,supervisor"
-      +"&shift_date=gte."+encodeURIComponent(ST.from)
-      +"&shift_date=lte."+encodeURIComponent(ST.to)
-      +"&order=shift_date.asc";
-    fetch(url,{ headers:headers() })
-      .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+(t||"").slice(0,140)); }); return r.json(); })
-      .then(function(rows){ ST.runs=rows||[]; ST.loading=false; setConn("live", ST.runs.length+" runs scanned"); render(); })
-      .catch(function(e){ ST.loading=false; ST.runs=[]; ST.error=String(e.message||e); setConn("err","couldn't load — "+ST.error); render(); });
+    var runsUrl=SUPABASE_URL+"/rest/v1/runs?select=machine_id,line,kind,batch_no,formulation,capacity,quality,tyre_type,mesh,weight_kg,workers,hours_run,runtime_min,kwh,firewood_kg,elec_start,elec_end,started_at,ended_at,loaded_at,unloaded_at,shift,shift_date,supervisor"
+      +"&shift_date=gte."+encodeURIComponent(ST.from)+"&shift_date=lte."+encodeURIComponent(ST.to)+"&order=shift_date.asc";
+    var bUrl=SUPABASE_URL+"/rest/v1/bearing_logs?select=machine_id,machine,position,bearing_type,temp_c,ts,recorded_at,shift,shift_date,supervisor"
+      +"&shift_date=gte."+encodeURIComponent(ST.from)+"&shift_date=lte."+encodeURIComponent(ST.to)+"&order=recorded_at.asc";
+    Promise.all([ jget(runsUrl), jget(bUrl) ]).then(function(res){
+      ST.runs=res[0]||[]; ST.bearings=res[1]||[]; ST.loading=false;
+      setConn("live", ST.runs.length+" runs · "+ST.bearings.length+" bearing reads");
+      render();
+    }).catch(function(e){
+      ST.loading=false; ST.runs=ST.runs||[]; ST.bearings=ST.bearings||[]; ST.error=String(e.message||e);
+      setConn("err","couldn't load — "+ST.error); render();
+    });
   }
+  function jget(url){ return fetch(url,{ headers:headers() }).then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+(t||"").slice(0,140)); }); return r.json(); }); }
+  function setConn(cls,txt){ var d=document.getElementById("dot"), t=document.getElementById("connTxt"); if(!d) return; d.className="dot "+(cls==="live"?"live":cls==="err"?"err":cls==="load"?"load":""); t.textContent=txt; }
 
-  function setConn(cls,txt){ var d=document.getElementById("dot"), t=document.getElementById("connTxt");
-    d.className="dot "+(cls==="live"?"live":cls==="err"?"err":cls==="load"?"load":""); t.textContent=txt; }
-
-  /* ===== render ===== */
+  /* ===== render shell ===== */
   function render(){
+    syncTabs();
     var v=document.getElementById("view");
-    if(ST.loading){ v.innerHTML=block("M3 12a9 9 0 1 0 3-6.7L3 8","Loading…","Scanning runs from "+esc(ST.from)+" to "+esc(ST.to)+"."); return; }
+    if(ST.loading){ v.innerHTML=block("M3 12a9 9 0 1 0 3-6.7L3 8","Loading…","Scanning the plant database from "+esc(ST.from)+" to "+esc(ST.to)+"."); return; }
     if(ST.error){ v.innerHTML=block("M12 9v4M12 17h.01M10.3 4 2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2A1.5 1.5 0 0 0 21.4 18L13.7 4Z","Couldn\u2019t reach the database",esc(ST.error)+"<br><br>Check the connection and tap Reload."); return; }
-
-    var ev=buildEvents(ST.runs), t=totals(ev);
-    var shown=ev.filter(function(e){ return ST.filter==="all"||ST.filter===e.type; });
-
-    var html=storeCards(t);
-    html+='<div class="note">Reconstructed from production runs: <b>in</b> = crumb produced by the grinders (Grinder 1/2 &amp; Soorya), '
-      +'<b>out</b> = crumb pulled from stock when an autoclave is loaded. Truck 30# feeds the special line; Bike 20# feeds the coarse line. '
-      +'Balances are the running total over the selected range only (pick <b>All</b> for the lifetime balance).</div>';
-
-    html+='<div class="filters"><div class="seg" id="seg">'
-      +'<button data-f="all"'+(ST.filter==="all"?' class="on"':'')+'>All</button>'
-      +'<button data-f="in"'+(ST.filter==="in"?' class="on"':'')+'>In only</button>'
-      +'<button data-f="out"'+(ST.filter==="out"?' class="on"':'')+'>Out only</button>'
-      +'</div><span class="count">'+shown.length+' movement'+(shown.length===1?"":"s")+'</span></div>';
-
-    if(!shown.length){
-      html+=block("M3 7h18M3 12h18M3 17h18","No crumb movement in this range","Nothing was produced into or pulled from crumb stock for "+esc(ST.from)+" → "+esc(ST.to)+".");
-      v.innerHTML=html; bind(); return;
-    }
-
-    // newest first for the list (balAfter already computed chronologically)
-    var list=shown.slice().sort(function(a,b){ return tms(b.ts)-tms(a.ts); });
-    html+='<div class="ledger">'+list.map(evRow).join("")+'</div>';
-    v.innerHTML=html; bind();
+    if(ST.tab==="history") v.innerHTML=viewHistory();
+    else if(ST.tab==="bearings") v.innerHTML=viewBearings();
+    else v.innerHTML=viewEfficiency();
+    bind();
   }
+  function syncTabs(){ document.querySelectorAll("#tabs button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-tab")===ST.tab); }); }
+  function block(path,title,body){ return '<div class="empty"><svg viewBox="0 0 24 24"><path d="'+path+'"/></svg><b>'+title+'</b><p>'+body+'</p></div>'; }
 
-  function storeCards(t){
-    function card(key){
-      var s=STORE[key], io=t[key], net=Math.round((io.in-io.out)*10)/10;
-      return '<div class="store '+(key==="bike"?"bike":"")+'">'
-        +'<div class="nm">'+esc(s.label)+' · '+esc(s.grade)+'</div>'
-        +'<div class="net tnum">'+(net>=0?"+":"")+kg(net)+' <small>kg net</small></div>'
-        +'<div class="io"><div>in <b class="pin">'+kg(io.in)+'</b> kg</div><div>out <b class="pout">'+kg(io.out)+'</b> kg</div></div>'
-        +'</div>';
-    }
-    return '<div class="stores">'+card("truck")+card("bike")+'</div>';
+  /* ============================================================ */
+  /* VIEW 1 — DAILY HISTORY                                        */
+  /* ============================================================ */
+  function viewHistory(){
+    var runs=(ST.runs||[]).slice();
+    if(!runs.length) return note("Every captured run — grinders, autoclaves and refiners — grouped by shift day, newest first.")
+      + block("M3 7h18M3 12h18M3 17h18","No runs in this range","Nothing was logged between "+esc(ST.from)+" and "+esc(ST.to)+".");
+    // group by day
+    var byDay={};
+    runs.forEach(function(r){ var d=runDay(r); (byDay[d]=byDay[d]||[]).push(r); });
+    var days=Object.keys(byDay).sort(function(a,b){ return a<b?1:(a>b?-1:0); });
+    var html=note("Every captured run — grinders, autoclaves and refiners — grouped by shift day, newest first. Output and energy totals are summed per day.");
+    html+='<div class="ledger">';
+    days.forEach(function(d){
+      var list=byDay[d].slice().sort(function(a,b){ return runTs(b)-runTs(a); });
+      var tw=0,tk=0,tf=0,tmh=0;
+      list.forEach(function(r){ tw+=num(r.weight_kg); tk+=num(r.kwh); tf+=num(r.firewood_kg); tmh+=manHours(r); });
+      html+='<div class="dayhead"><span class="d">'+esc(fmtDay(d))+'</span><span class="tot">'
+        +'<span>out <b>'+kg(tw)+'</b> kg</span>'
+        +'<span>elec <b>'+kg(tk)+'</b> kWh</span>'
+        +(tf>0?'<span>firewood <b>'+kg(tf)+'</b> kg</span>':'')
+        +'<span>man-hrs <b>'+n1(tmh)+'</b></span>'
+        +'<span>'+list.length+' run'+(list.length===1?"":"s")+'</span></span></div>';
+      html+=list.map(histRow).join("");
+    });
+    html+='</div>';
+    return html;
   }
-
-  function evRow(e){
-    var s=STORE[e.store], gradeCls=e.store==="bike"?"gchip b":"gchip";
-    var where = e.type==="in"
-      ? '<span class="where">'+esc(e.machine)+' <span class="arrow">\u2192 stock</span></span>'
-      : '<span class="where"><span class="arrow">stock \u2192</span> '+esc(e.machine)+'</span>';
-    var meta=[];
-    meta.push('<span class="'+gradeCls+'">'+esc(s.label.split(" ")[0])+' '+esc(s.grade)+'</span>');
-    if(e.type==="out" && e.batch) meta.push("batch "+esc(e.batch)+(e.formulation?" · "+esc(e.formulation):""));
-    if(e.shift) meta.push(esc(e.shift)+(e.shiftDate?" "+esc(e.shiftDate):""));
-    meta.push(e.supervisor?("\uD83D\uDC64 "+esc(e.supervisor)):'<span style="color:var(--amber)">no supervisor</span>');
+  function histRow(r){
+    var mid=r.machine_id||"";
+    var isCoarse=String(r.line||"").toLowerCase()==="coarse";
+    var hasBatch=populated(r.batch_no);
+    var ident;
+    if(hasBatch && populated(r.quality)){
+      ident='<span class="chip batch">#'+esc(r.batch_no)+'</span><span class="chip q">'+esc(r.quality)+'</span>';
+    } else if(hasBatch){
+      ident='<span class="chip '+(isCoarse?'coarse':'batch')+'">#'+esc(r.batch_no)+'</span>'+(r.shift?'<span class="chip shift">'+esc(r.shift)+'</span>':'');
+    } else {
+      ident='<span class="chip '+(isCoarse?'coarse':'shift')+'">'+esc(r.shift||"shift")+'</span>'+(populated(r.quality)?'<span class="chip q">'+esc(r.quality)+'</span>':'');
+    }
+    var metaBits=[];
+    if(populated(r.formulation)) metaBits.push(esc(r.formulation));
+    if(populated(r.passes) && num(r.passes)>1) metaBits.push(num(r.passes)+" passes");
+    metaBits.push(r.supervisor?("\uD83D\uDC64 "+esc(r.supervisor)):'<span style="color:var(--amber)">no supervisor</span>');
+    var when=(r.ended_at||r.unloaded_at)?fmtWhen(r.ended_at||r.unloaded_at):(esc(r.shift||"")+" shift");
+    var en=[];
+    if(num(r.kwh)>0) en.push(kg(num(r.kwh))+" kWh");
+    if(num(r.firewood_kg)>0) en.push(kg(num(r.firewood_kg))+" kg fw");
+    var wt=num(r.weight_kg)>0?(kg(num(r.weight_kg))+' <span style="font-size:11px;color:var(--faint)">kg</span>'):'<span style="color:var(--faint)">—</span>';
     return '<div class="ev">'
-      +'<div class="dir"><span class="badge '+e.type+'">'+(e.type==="in"?"In":"Out")+'</span></div>'
-      +'<div class="body">'+where+'<div class="meta">'+meta.join(" · ")+'</div></div>'
-      +'<div class="amt"><div class="kg '+e.type+'">'+(e.type==="in"?"+":"\u2212")+kg(e.kg)+'<span style="font-size:11px;color:var(--faint)"> kg</span></div>'
-        +'<div class="bal">bal '+kg(e.balAfter)+'</div>'
-        +'<div class="when">'+fmtWhen(e.ts)+'</div></div>'
+      +'<div class="mc">'+esc(mname(mid))+'<small>'+esc(when)+'</small></div>'
+      +'<div class="body"><div class="ident">'+ident+'</div><div class="meta">'+metaBits.join(" · ")+'</div></div>'
+      +'<div class="amt"><div class="kg">'+wt+'</div>'+(en.length?'<div class="en">'+en.join(" · ")+'</div>':'')+'</div>'
       +'</div>';
   }
 
-  function block(path,title,body){
-    return '<div class="empty"><svg viewBox="0 0 24 24"><path d="'+path+'"/></svg><b>'+title+'</b><p>'+body+'</p></div>';
+  /* ============================================================ */
+  /* VIEW 2 — BEARING TEMPERATURE MONITORING                      */
+  /* ============================================================ */
+  function viewBearings(){
+    var reads=(ST.bearings||[]).slice();
+    // machines present
+    var mset={}; reads.forEach(function(r){ if(populated(r.machine_id)) mset[r.machine_id]=1; });
+    var machines=Object.keys(mset).sort(function(a,b){ return mname(a)<mname(b)?-1:1; });
+    if(!machines.length){
+      return note("Pick a machine and bearing to plot its temperature trend against the "+THRESHOLD+"\u00b0C limit.")
+        + block("M12 14.5V6 M9 6a3 3 0 0 1 6 0","No bearing readings in this range","No bearing temperatures were logged between "+esc(ST.from)+" and "+esc(ST.to)+".");
+    }
+    if(!ST.bMachine || mset[ST.bMachine]!==1) ST.bMachine=machines[0];
+
+    // positions present for this machine
+    var pset={}; reads.forEach(function(r){ if(r.machine_id===ST.bMachine && populated(r.position)) pset[String(r.position)]=1; });
+    var positions=Object.keys(pset).sort();
+    if(ST.bPos!=="all" && pset[ST.bPos]!==1) ST.bPos="all";
+
+    // build controls
+    var mOpts=machines.map(function(m){ return '<option value="'+esc(m)+'"'+(m===ST.bMachine?" selected":"")+'>'+esc(mname(m))+'</option>'; }).join("");
+    var posBtns='<button data-pos="all" class="'+(ST.bPos==="all"?"on":"")+'" style="'+(ST.bPos==="all"?"background:var(--amber)":"")+'">All</button>'
+      + positions.map(function(p){
+          var on=ST.bPos===p;
+          return '<button data-pos="'+esc(p)+'" class="'+(on?"on":"")+'" style="'+(on?("background:"+POSHEX[p]+";border-color:transparent"):"")+'">'+esc(p)+'</button>';
+        }).join("");
+
+    var ctl='<div class="subctl">'
+      +'<div class="ctl"><label>Machine</label><select id="bMachine">'+mOpts+'</select></div>'
+      +'<div class="ctl"><label>Bearing position</label><div class="poschips" id="posChips">'+posBtns+'</div></div>'
+      +'</div>';
+
+    // series + stats
+    var wanted = ST.bPos==="all" ? positions : [ST.bPos];
+    var series=[]; var allPts=[]; var overCount=0; var maxT=0; var latest=null;
+    wanted.forEach(function(p){
+      var pts=reads.filter(function(r){ return r.machine_id===ST.bMachine && String(r.position)===p && populated(r.temp_c); })
+                   .map(function(r){ return { x:tms(r.recorded_at||r.ts), y:num(r.temp_c), sup:r.supervisor||"" }; })
+                   .filter(function(pt){ return pt.x>0; })
+                   .sort(function(a,b){ return a.x-b.x; });
+      pts.forEach(function(pt){ allPts.push(pt); if(pt.y>=THRESHOLD) overCount++; if(pt.y>maxT) maxT=pt.y; if(!latest||pt.x>latest.x) latest=pt; });
+      if(pts.length) series.push({ name:"Bearing "+p, color:POSHEX[p]||"#7fa8c9", points:pts });
+    });
+
+    var head=note("Temperature trend for the selected bearing against the "+THRESHOLD+"\u00b0C limit. Points on or above the limit are marked red. "+(ST.bPos==="all"?"All positions overlaid.":"Single bearing."));
+    if(!allPts.length){
+      return ctl+head+block("M12 14.5V6 M9 6a3 3 0 0 1 6 0","No readings for this bearing","Try another position or widen the date range.");
+    }
+
+    var avg=allPts.reduce(function(s,p){return s+p.y;},0)/allPts.length;
+    var stats='<div class="metrics">'
+      +metric("Latest", latest?n1(latest.y):"—", "\u00b0C", latest?fmtWhen(latest.x):"", latest&&latest.y>=THRESHOLD?"var(--hot)":"var(--steel)")
+      +metric("Peak in range", n1(maxT), "\u00b0C", "highest reading", maxT>=THRESHOLD?"var(--hot)":"var(--amber)")
+      +metric("Average", n1(avg), "\u00b0C", allPts.length+" readings", "var(--elec)")
+      +metric("Over "+THRESHOLD+"\u00b0C", overCount, "", overCount?"needs attention":"all within limit", overCount?"var(--hot)":"var(--in)")
+      +'</div>';
+
+    var legend='<div class="legend">'+series.map(function(s){ return '<span><i style="background:'+s.color+'"></i>'+esc(s.name)+'</span>'; }).join("")
+      +'<span><i class="dash"></i>'+THRESHOLD+'\u00b0C limit</span></div>';
+
+    return ctl+head+stats+'<div class="chartwrap"><div class="chart">'+tempChart(series)+'</div>'+legend+'</div>';
   }
 
-  /* ===== controls ===== */
+  /* SVG temperature line chart with a fixed 80°C threshold line */
+  function tempChart(series){
+    var W=720, H=320, padL=42, padR=14, padT=16, padB=30;
+    var x0=padL, x1=W-padR, y0=H-padB, y1=padT;
+    var xmin=Infinity, xmax=-Infinity, ymax=0;
+    series.forEach(function(s){ s.points.forEach(function(p){ if(p.x<xmin) xmin=p.x; if(p.x>xmax) xmax=p.x; if(p.y>ymax) ymax=p.y; }); });
+    if(!isFinite(xmin)){ xmin=0; xmax=1; }
+    if(xmin===xmax){ xmin-=1800000; xmax+=1800000; } // ±30 min so a single point sits centred
+    var yTop=Math.max(100, Math.ceil((Math.max(ymax,THRESHOLD)+10)/20)*20);
+    function X(v){ return x0+(x1-x0)*((v-xmin)/(xmax-xmin)); }
+    function Y(v){ return y0+(y1-y0)*(v/yTop); }
+
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Bearing temperature chart">';
+    // y gridlines + labels
+    for(var t=0;t<=yTop;t+=20){
+      var gy=Y(t);
+      svg+='<line x1="'+x0+'" y1="'+gy.toFixed(1)+'" x2="'+x1+'" y2="'+gy.toFixed(1)+'" stroke="#2a2520" stroke-width="1"/>';
+      svg+='<text x="'+(x0-8)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="#6f665a" font-family="ui-monospace,monospace">'+t+'</text>';
+    }
+    // x ticks (about 5)
+    var ticks=5;
+    for(var i=0;i<=ticks;i++){
+      var tx=xmin+(xmax-xmin)*(i/ticks); var gx=X(tx);
+      svg+='<line x1="'+gx.toFixed(1)+'" y1="'+y1+'" x2="'+gx.toFixed(1)+'" y2="'+y0+'" stroke="#211d18" stroke-width="1"/>';
+      svg+='<text x="'+gx.toFixed(1)+'" y="'+(y0+17)+'" text-anchor="middle" font-size="9.5" fill="#6f665a" font-family="ui-monospace,monospace">'+esc(fmtWhen(tx))+'</text>';
+    }
+    // threshold line at 80
+    var ty=Y(THRESHOLD);
+    svg+='<line x1="'+x0+'" y1="'+ty.toFixed(1)+'" x2="'+x1+'" y2="'+ty.toFixed(1)+'" stroke="#e5503f" stroke-width="1.6" stroke-dasharray="6 5"/>';
+    svg+='<text x="'+(x1-3)+'" y="'+(ty-6).toFixed(1)+'" text-anchor="end" font-size="10" fill="#e5503f" font-family="ui-monospace,monospace">'+THRESHOLD+'\u00b0C limit</text>';
+    // series lines + points
+    series.forEach(function(s){
+      var d=s.points.map(function(p,idx){ return (idx?"L":"M")+X(p.x).toFixed(1)+" "+Y(p.y).toFixed(1); }).join(" ");
+      svg+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>';
+      s.points.forEach(function(p){
+        var hot=p.y>=THRESHOLD;
+        svg+='<circle cx="'+X(p.x).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="'+(hot?3.6:2.6)+'" fill="'+(hot?"#e5503f":s.color)+'"'+(hot?' stroke="#1b0e0c" stroke-width="1"':'')+'><title>'+n1(p.y)+'\u00b0C · '+esc(fmtWhen(p.x))+(p.sup?" · "+esc(p.sup):"")+'</title></circle>';
+      });
+    });
+    // axis frame
+    svg+='<line x1="'+x0+'" y1="'+y1+'" x2="'+x0+'" y2="'+y0+'" stroke="#39322a" stroke-width="1"/>';
+    svg+='<line x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" stroke="#39322a" stroke-width="1"/>';
+    svg+='</svg>';
+    return svg;
+  }
+
+  /* ============================================================ */
+  /* VIEW 3 — PRODUCTION EFFICIENCY                               */
+  /* ============================================================ */
+  function viewEfficiency(){
+    var runs=(ST.runs||[]).slice();
+    // batches present, most-recent first
+    var bmap={};
+    runs.forEach(function(r){ if(populated(r.batch_no)){ var k=String(r.batch_no); var t=runTs(r); if(!bmap[k]||t>bmap[k]) bmap[k]=t; } });
+    var batches=Object.keys(bmap).sort(function(a,b){ return bmap[b]-bmap[a]; });
+    if(!batches.length){
+      return note("Pick a batch and grade to see how much was produced per man-hour and the electricity cost per kilo for that line.")
+        + block("M4 20V10M10 20V4M16 20v-7M22 20H2","No batches in this range","Efficiency needs graded refiner runs with a batch number. Widen the date range or check the special line.");
+    }
+    if(!ST.eBatch || bmap[ST.eBatch]==null) ST.eBatch=batches[0];
+
+    // qualities present for the chosen batch
+    var qset={}; runs.forEach(function(r){ if(String(r.batch_no||"")===ST.eBatch && populated(r.quality)) qset[r.quality]=1; });
+    var quals=Object.keys(qset).sort(function(a,b){ return QORDER.indexOf(a)-QORDER.indexOf(b); });
+    if(ST.eQual!=="__all__" && qset[ST.eQual]!==1) ST.eQual="__all__";
+
+    var bOpts=batches.map(function(b){ return '<option value="'+esc(b)+'"'+(b===ST.eBatch?" selected":"")+'>#'+esc(b)+'</option>'; }).join("");
+    var qOpts='<option value="__all__"'+(ST.eQual==="__all__"?" selected":"")+'>All grades (whole batch)</option>'
+      + quals.map(function(q){ return '<option value="'+esc(q)+'"'+(q===ST.eQual?" selected":"")+'>'+esc(q)+'</option>'; }).join("");
+
+    var ctl='<div class="subctl">'
+      +'<div class="ctl"><label>Batch</label><select id="eBatch">'+bOpts+'</select></div>'
+      +'<div class="ctl"><label>Grade / line</label><select id="eQual">'+qOpts+'</select></div>'
+      +'<div class="ctl"><label>Electricity tariff (\u20b9/kWh)</label><input type="number" id="tariff" min="0" step="0.1" value="'+esc(ST.tariff)+'" style="width:120px"></div>'
+      +'</div>';
+
+    // gather the line
+    var line=runs.filter(function(r){
+      if(String(r.batch_no||"")!==ST.eBatch) return false;
+      if(ST.eQual==="__all__") return true;
+      return String(r.quality||"")===ST.eQual;
+    });
+    var prod=0,mh=0,kwh=0,fw=0;
+    line.forEach(function(r){ prod+=num(r.weight_kg); mh+=manHours(r); kwh+=num(r.kwh); fw+=num(r.firewood_kg); });
+    var tariff=num(ST.tariff);
+    var elecCost=kwh*tariff;
+    var perMH = mh>0 ? prod/mh : null;
+    var costKg = prod>0 ? elecCost/prod : null;
+    var kwhKg = prod>0 ? kwh/prod : null;
+
+    var label="#"+ST.eBatch+(ST.eQual==="__all__"?" · whole batch":" · "+ST.eQual);
+    var head=note("Efficiency for <b>"+esc(label)+"</b>. The line is every run tagged with this batch"
+      +(ST.eQual==="__all__"?" (all grades, so the shared autoclave cook is included)":" and grade")
+      +". Man-hours = workers \u00d7 running hours; electricity cost = energy \u00d7 tariff.");
+
+    var headline='<div class="metrics">'
+      +metric("Production / man-hour", perMH==null?"—":n1(perMH), "kg/mh", "output \u00f7 man-hours", "var(--amber)", true)
+      +metric("Electricity cost / kilo", costKg==null?"—":("\u20b9"+n1(costKg)), "", "energy cost \u00f7 output", "var(--elec)", true)
+      +metric("Specific energy", kwhKg==null?"—":n1(kwhKg), "kWh/kg", "tariff-independent", "var(--steel)")
+      +'</div>';
+
+    var support='<div class="metrics">'
+      +metric("Output produced", kg(prod), "kg", ST.eQual==="__all__"?"all grades":esc(ST.eQual)+" grade", "var(--in)")
+      +metric("Total man-hours", n1(mh), "mh", line.length+" runs in line", "var(--violet)")
+      +metric("Energy used", kg(kwh), "kWh", "\u20b9"+money(elecCost)+" at \u20b9"+n1(tariff)+"/kWh", "var(--elec)")
+      +(fw>0?metric("Firewood (autoclave)", kg(fw), "kg", "thermal — not costed here", "var(--out)"):"")
+      +'</div>';
+
+    // contributing runs
+    var rows=line.slice().sort(function(a,b){ return runTs(a)-runTs(b); }).map(function(r){
+      return '<tr><td>'+esc(mname(r.machine_id))+'</td>'
+        +'<td>'+(populated(r.quality)?esc(r.quality):'<span style="color:var(--faint)">—</span>')+'</td>'
+        +'<td class="n">'+(num(r.weight_kg)>0?kg(num(r.weight_kg)):"—")+'</td>'
+        +'<td class="n">'+n1(manHours(r))+'</td>'
+        +'<td class="n">'+(num(r.kwh)>0?kg(num(r.kwh)):"—")+'</td></tr>';
+    }).join("");
+    var tbl='<table class="tbl"><thead><tr><th>Machine</th><th>Grade</th><th class="n">Output kg</th><th class="n">Man-hrs</th><th class="n">kWh</th></tr></thead><tbody>'
+      +rows
+      +'<tr class="totrow"><td>Line total</td><td></td><td class="n">'+kg(prod)+'</td><td class="n">'+n1(mh)+'</td><td class="n">'+kg(kwh)+'</td></tr>'
+      +'</tbody></table>';
+
+    return ctl+head+headline+support+'<div class="note" style="margin-top:18px">Contributing runs</div>'+tbl;
+  }
+
+  /* ===== small builders ===== */
+  function metric(nm,big,unit,sub,accent,hero){
+    return '<div class="metric'+(hero?" hero":"")+'" style="--accent:'+(accent||"var(--steel)")+'">'
+      +'<div class="nm">'+esc(nm)+'</div>'
+      +'<div class="big">'+esc(String(big))+(unit?' <small>'+esc(unit)+'</small>':'')+'</div>'
+      +(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
+  }
+  function note(html){ return '<div class="note">'+html+'</div>'; }
+
+  /* ===== events ===== */
+  function bind(){
+    var bM=document.getElementById("bMachine"); if(bM) bM.addEventListener("change",function(){ ST.bMachine=bM.value; ST.bPos="all"; render(); });
+    var pc=document.getElementById("posChips"); if(pc) pc.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){ ST.bPos=b.getAttribute("data-pos"); render(); }); });
+    var eB=document.getElementById("eBatch"); if(eB) eB.addEventListener("change",function(){ ST.eBatch=eB.value; ST.eQual="__all__"; render(); });
+    var eQ=document.getElementById("eQual"); if(eQ) eQ.addEventListener("change",function(){ ST.eQual=eQ.value; render(); });
+    var tf=document.getElementById("tariff"); if(tf) tf.addEventListener("input",function(){ ST.tariff=tf.value; render(); });
+  }
+
+  /* ===== controls / header ===== */
   function applyQuick(q){
     ST.quick=q;
     if(q==="all"){ ST.from="2020-01-01"; ST.to=todayISO(); }
-    else { ST.from=shiftDate(parseInt(q,10)-1); ST.to=todayISO(); }
-    document.getElementById("fromIn").value=ST.from;
-    document.getElementById("toIn").value=ST.to;
-    syncQuick();
-    load();
+    else { ST.from=daysAgoISO(parseInt(q,10)-1); ST.to=todayISO(); }
+    document.getElementById("fromIn").value=ST.from; document.getElementById("toIn").value=ST.to;
+    syncQuick(); load();
   }
   function syncQuick(){ document.querySelectorAll("#quick button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-q")===ST.quick); }); }
 
-  function bind(){
-    var seg=document.getElementById("seg");
-    if(seg) seg.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){ ST.filter=b.getAttribute("data-f"); render(); }); });
-  }
-
   function init(){
-    applyQuick("7");                     // default: last 7 days
+    document.querySelectorAll("#tabs button").forEach(function(b){ b.addEventListener("click",function(){ ST.tab=b.getAttribute("data-tab"); render(); }); });
     document.getElementById("fromIn").addEventListener("change",function(e){ if(e.target.value){ ST.from=e.target.value; ST.quick=""; syncQuick(); load(); } });
     document.getElementById("toIn").addEventListener("change",function(e){ if(e.target.value){ ST.to=e.target.value; ST.quick=""; syncQuick(); load(); } });
     document.querySelectorAll("#quick button").forEach(function(b){ b.addEventListener("click",function(){ applyQuick(b.getAttribute("data-q")); }); });
     document.getElementById("reloadBtn").addEventListener("click", load);
+    applyQuick("30"); // default: last 30 days
   }
   init();
 })();
