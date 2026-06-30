@@ -1,525 +1,371 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0e0c0a">
-<title>Manna · Production Monitor</title>
+<meta name="theme-color" content="#0c1116">
+<title>Manna Reports</title>
 <style>
   :root{
-    --bg:#0e0c0a; --panel:#151210; --panel2:#1b1713; --raise:#221c16;
-    --ink:#ece6da; --dim:#b0a692; --faint:#6f665a;
-    --amber:#e8a13a; --amber-dim:#a9772a; --amber-soft:rgba(232,161,58,.13);
-    --steel:#7fa8c9; --steel-soft:rgba(127,168,201,.13);
-    --in:#6cb83f; --in-soft:rgba(108,184,63,.12);
-    --out:#d98a3d; --out-soft:rgba(217,138,61,.13);
-    --violet:#b58be0; --violet-soft:rgba(181,139,224,.12);
-    --elec:#46c2d6; --elec-soft:rgba(70,194,214,.12);
-    --hot:#e5503f; --hot-soft:rgba(229,80,63,.13);
-    --err:#d8453c;
-    --line:#2a2520; --line2:#39322a;
-    --r:14px; --r-sm:10px;
-    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    --bg:#0c1116; --panel:#141b22; --panel2:#101820; --line:#26323d; --ink:#e8eef4; --ink-dim:#9fb0bf;
+    --muted:#6f818f; --steel:#7fb1d8; --elec:#7c9cf0; --ember:#f0a35a; --ok:#46c79a; --amber:#f3c969;
+    --err:#ef6b5b; --accent:#7fb1d8;
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
-  body{ padding-bottom:48px; }
-  .tnum{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
-  button{ font-family:inherit; cursor:pointer; }
-
-  header{ position:sticky; top:0; z-index:30; background:linear-gradient(180deg,#0e0c0a,rgba(14,12,10,.92)); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
-  .bar{ max-width:1080px; margin:0 auto; padding:13px 18px 0; }
-  .eyebrow{ font-size:10.5px; letter-spacing:.32em; text-transform:uppercase; color:var(--amber-dim); font-weight:700; }
-  .brand h1{ margin:3px 0 0; font-size:20px; font-weight:800; letter-spacing:-.01em; }
-  .brand h1 b{ color:var(--amber); }
-  .conn{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; color:var(--faint); margin-top:5px; font-family:var(--mono); }
-  .dot{ width:8px; height:8px; border-radius:50%; background:var(--faint); }
-  .dot.live{ background:var(--in); box-shadow:0 0 8px 1px rgba(108,184,63,.6); }
-  .dot.load{ background:var(--amber); animation:pulse 1s infinite; }
-  .dot.err{ background:var(--err); box-shadow:0 0 8px 1px rgba(216,69,60,.5); }
-  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
-
-  .controls{ display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-top:13px; }
-  .ctl{ display:flex; flex-direction:column; gap:5px; }
-  .ctl label{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:700; padding-left:1px; }
-  input[type=date], input[type=number], select{ background:var(--panel2); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 11px; font-family:var(--mono); font-size:14px; color-scheme:dark; }
-  select{ font-family:var(--sans); }
-  .quick{ display:inline-flex; gap:6px; }
-  .quick button{ background:var(--raise); border:1px solid var(--line2); color:var(--dim); border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:650; }
-  .quick button.on{ background:var(--amber); color:#1c1306; border-color:transparent; }
-  .reload{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; background:var(--raise); border:1px solid var(--line2); color:var(--ink); border-radius:var(--r-sm); padding:9px 14px; font-weight:650; font-size:13.5px; }
-  .reload svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; }
-  .reload:active{ transform:translateY(1px); }
-
-  /* tab bar */
-  .tabs{ max-width:1080px; margin:14px auto 0; padding:0 18px; display:flex; gap:4px; }
-  .tabs button{ position:relative; background:none; border:none; color:var(--faint); font-weight:700; font-size:13.5px; letter-spacing:.01em; padding:11px 15px 13px; border-radius:9px 9px 0 0; }
-  .tabs button .ic{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; vertical-align:-3px; margin-right:7px; }
-  .tabs button.on{ color:var(--amber); }
-  .tabs button.on::after{ content:""; position:absolute; left:10px; right:10px; bottom:0; height:2px; background:var(--amber); border-radius:2px; }
-  .tabs button:hover:not(.on){ color:var(--dim); }
-
-  main{ max-width:1080px; margin:0 auto; padding:18px; }
-
-  .note{ font-size:12px; color:var(--faint); margin:4px 2px 16px; line-height:1.5; }
-  .note b{ color:var(--dim); }
-
-  /* contextual sub-controls */
-  .subctl{ display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-  .subctl .ctl select{ min-width:150px; }
-  .poschips{ display:inline-flex; gap:6px; flex-wrap:wrap; }
-  .poschips button{ background:var(--panel2); border:1px solid var(--line2); color:var(--dim); border-radius:8px; padding:8px 13px; font-size:13px; font-weight:700; }
-  .poschips button.on{ color:#1c1306; border-color:transparent; }
-
-  /* metric cards */
-  .metrics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:14px; }
-  .metric{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; position:relative; overflow:hidden; }
-  .metric::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,var(--steel)); }
-  .metric .nm{ font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:750; }
-  .metric .big{ font-family:var(--mono); font-size:27px; font-weight:600; margin-top:8px; line-height:1.05; }
-  .metric .big small{ font-size:13px; color:var(--faint); font-weight:600; }
-  .metric .sub{ font-size:11.5px; color:var(--faint); margin-top:6px; }
-  .metric.hero{ grid-column:span 1; }
-  .metric.hero .big{ font-size:31px; color:var(--amber); }
-
-  /* chart */
-  .chartwrap{ background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:var(--r); padding:14px 12px 8px; margin-bottom:14px; }
-  .chart svg{ width:100%; height:auto; display:block; }
-  .legend{ display:flex; gap:14px; flex-wrap:wrap; padding:6px 6px 2px; font-size:12px; color:var(--dim); }
-  .legend span{ display:inline-flex; align-items:center; gap:6px; }
-  .legend i{ width:11px; height:3px; border-radius:2px; display:inline-block; }
-  .legend i.dash{ height:0; border-top:2px dashed var(--hot); width:14px; }
-
-  /* tables / ledger */
-  .ledger{ display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
-  .dayhead{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 15px; background:var(--raise); border-top:1px solid var(--line); }
-  .dayhead:first-child{ border-top:none; }
-  .dayhead .d{ font-weight:800; font-size:13.5px; letter-spacing:.02em; }
-  .dayhead .tot{ font-size:11.5px; color:var(--faint); font-family:var(--mono); display:flex; gap:13px; flex-wrap:wrap; }
-  .dayhead .tot b{ color:var(--dim); font-weight:600; }
-  .ev{ display:grid; grid-template-columns:96px 1fr auto; gap:12px; align-items:center; padding:12px 15px; border-top:1px solid var(--line); background:var(--panel); }
-  .ev .mc{ font-weight:750; font-size:13.5px; }
-  .ev .mc small{ display:block; color:var(--faint); font-size:11px; font-weight:600; margin-top:2px; font-family:var(--mono); }
-  .ev .body .ident{ font-size:14.5px; }
-  .ev .body .meta{ font-size:11.5px; color:var(--faint); margin-top:3px; }
-  .chip{ display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:700; border-radius:5px; padding:2px 7px; margin-right:6px; }
-  .chip.batch{ color:var(--amber); background:var(--amber-soft); border:1px solid #5a3f1c; }
-  .chip.shift{ color:var(--steel); background:var(--steel-soft); border:1px solid #2f4658; }
-  .chip.coarse{ color:var(--out); background:var(--out-soft); border:1px solid #5a3f1c; }
-  .chip.q{ color:var(--in); background:var(--in-soft); border:1px solid #2f5320; }
-  .ev .amt{ text-align:right; white-space:nowrap; }
-  .ev .amt .kg{ font-family:var(--mono); font-size:16px; font-weight:600; }
-  .ev .amt .en{ font-size:11px; color:var(--faint); margin-top:3px; font-family:var(--mono); }
-
-  /* simple data table (efficiency contributors) */
-  table.tbl{ width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
-  table.tbl th, table.tbl td{ text-align:left; padding:10px 13px; border-top:1px solid var(--line); font-size:13px; }
-  table.tbl th{ background:var(--raise); color:var(--dim); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:750; border-top:none; }
-  table.tbl td.n{ text-align:right; font-family:var(--mono); }
-  table.tbl tr.totrow td{ background:var(--panel2); font-weight:700; border-top:1px solid var(--line2); }
-
-  .empty{ text-align:center; padding:56px 20px; color:var(--faint); }
-  .empty svg{ width:40px; height:40px; stroke:var(--line2); fill:none; stroke-width:1.5; margin-bottom:14px; }
-  .empty b{ display:block; color:var(--dim); font-size:16px; font-weight:700; margin-bottom:5px; }
-  .empty p{ margin:0 auto; max-width:360px; font-size:13.5px; line-height:1.5; }
-
-  @media (max-width:560px){
-    .bar{padding:12px 14px 0} main{padding:14px} .reload{margin-left:0}
-    .tabs{padding:0 8px} .tabs button{padding:11px 10px 13px; font-size:12.5px}
-    .ev{grid-template-columns:74px 1fr auto; gap:9px; padding:11px}
-  }
-  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  body{ padding:0 0 40px; }
+  .wrap{ max-width:760px; margin:0 auto; padding:0 14px; }
+  header{ position:sticky; top:0; z-index:20; background:linear-gradient(180deg,#0c1116 70%,rgba(12,17,22,0)); padding:14px 0 8px; }
+  h1{ font-size:20px; margin:0; letter-spacing:.3px; }
+  .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+  .tabs{ display:flex; gap:6px; margin-top:12px; }
+  .tab{ flex:1; text-align:center; padding:9px 6px; border-radius:10px; background:var(--panel2); border:1px solid var(--line);
+    color:var(--ink-dim); font-size:13px; font-weight:600; cursor:pointer; }
+  .tab.on{ background:var(--accent); color:#08222e; border-color:var(--accent); }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:12px; }
+  .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  select,input{ background:#0e151b; border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:9px 10px; font-size:14px; width:100%; }
+  label{ display:block; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+  .pick{ display:flex; gap:8px; }
+  .pick .f{ flex:1; }
+  .grouphead{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:16px 2px 6px; }
+  .mrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer; }
+  .mrow:active{ background:var(--panel2); }
+  .mrow .mn{ font-weight:600; }
+  .mrow .mk{ font-size:11px; color:var(--muted); }
+  .badge{ background:#0e151b; border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--ink-dim); }
+  .badge.hot{ color:var(--ember); border-color:#5a4420; }
+  .badge.none{ color:var(--muted); }
+  .chev{ color:var(--muted); font-size:18px; }
+  .back{ display:inline-flex; align-items:center; gap:6px; color:var(--steel); font-size:13px; cursor:pointer; margin:2px 0 4px; }
+  .kpis{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .kpi{ flex:1; min-width:90px; background:var(--panel2); border:1px solid var(--line); border-radius:11px; padding:10px 12px; }
+  .kpi b{ display:block; font-size:18px; }
+  .kpi span{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .runcard{ background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px 13px; margin-top:10px; }
+  .runcard .top{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  .runcard .ttl{ font-weight:600; }
+  .runcard .when{ font-size:11px; color:var(--muted); }
+  .params{ display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+  .chiplet{ background:#0e151b; border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:12px; color:var(--ink-dim); }
+  .chiplet b{ color:var(--ink); }
+  .qchip{ font-size:11px; padding:2px 8px; border-radius:999px; background:#22304a; color:#cfe0ff; }
+  .shiftbox{ border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-top:10px; background:var(--panel2); }
+  .shiftbox .sh{ font-weight:600; margin-bottom:6px; }
+  .dt{ color:var(--ember); }
+  .muted{ color:var(--muted); }
+  .empty{ text-align:center; color:var(--muted); padding:30px 10px; font-size:13.5px; }
+  .err{ background:#2c1816; border:1px solid #5a2c1d; color:#f0b3ab; border-radius:11px; padding:11px 13px; font-size:13px; margin-top:12px; }
+  .reasons div{ margin-top:8px; font-size:13px; line-height:1.4; }
+  .reasons .lab{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  table.tt{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.tt th,table.tt td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); }
+  table.tt th{ color:var(--muted); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; }
+  .tnum{ text-align:right; font-variant-numeric:tabular-nums; }
+  .refresh{ background:none; border:1px solid var(--line); color:var(--ink-dim); border-radius:9px; padding:7px 12px; font-size:12px; cursor:pointer; }
+  .spin{ color:var(--muted); font-size:13px; padding:20px; text-align:center; }
+  svg.chart{ width:100%; height:200px; display:block; }
 </style>
 </head>
 <body>
-<header>
-  <div class="bar">
-    <div class="brand">
-      <div class="eyebrow">Plant Telemetry</div>
-      <h1>Production <b>Monitor</b></h1>
-      <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">connecting…</span></div>
+<div class="wrap">
+  <header>
+    <div class="row">
+      <div><h1>Manna Reports</h1><div class="sub" id="sub">Reclaim plant · read-only</div></div>
+      <button class="refresh" id="refresh">↻ Refresh</button>
     </div>
-    <div class="controls">
-      <div class="ctl"><label for="fromIn">From</label><input type="date" id="fromIn"></div>
-      <div class="ctl"><label for="toIn">To</label><input type="date" id="toIn"></div>
-      <div class="ctl"><label>Quick range</label>
-        <div class="quick" id="quick">
-          <button data-q="7">7d</button><button data-q="30">30d</button><button data-q="90">90d</button><button data-q="all">All</button>
-        </div>
-      </div>
-      <button class="reload" id="reloadBtn"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>Reload</button>
+    <div class="tabs">
+      <div class="tab on" data-tab="prod">Production</div>
+      <div class="tab" data-tab="maint">Maintenance</div>
+      <div class="tab" data-tab="bear">Bearings</div>
     </div>
-  </div>
-  <nav class="tabs" id="tabs">
-    <button data-tab="history" class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>Daily history</button>
-    <button data-tab="bearings"><svg class="ic" viewBox="0 0 24 24"><path d="M12 14.5V6"/><circle cx="12" cy="17.5" r="3.4"/><path d="M9 6a3 3 0 0 1 6 0"/></svg>Bearing temps</button>
-    <button data-tab="efficiency"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>Efficiency</button>
-  </nav>
-</header>
-
-<main id="view"></main>
-
+  </header>
+  <div id="view"></div>
+</div>
 <script>
 (function(){
-  "use strict";
+  var SB_URL="https://xqdmxfjmmazfpmsvbnjx.supabase.co";
+  var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZG14ZmptbWF6ZnBtc3Zibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MzE2MDcsImV4cCI6MjA5NzIwNzYwN30.tjR30i3Cdaz-6S2tr-7s5gvvOz24rTK0KyxW47itC6s";
 
-  /* ===== Supabase (same project the shopfloor app writes to) ===== */
-  var SUPABASE_URL  = "https://xqdmxfjmmazfpmsvbnjx.supabase.co";
-  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZG14ZmptbWF6ZnBtc3Zibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MzE2MDcsImV4cCI6MjA5NzIwNzYwN30.tjR30i3Cdaz-6S2tr-7s5gvvOz24rTK0KyxW47itC6s";
-  function headers(){ return { "apikey":SUPABASE_ANON, "Authorization":"Bearer "+SUPABASE_ANON }; }
+  var MACHINES=[
+    {id:"CRK",  name:"Cracker",        short:"CRK",     kind:"grind",     group:"Grinding line"},
+    {id:"GRD_K",name:"Grinder 1",      short:"Grind 1", kind:"grind",     group:"Grinding line"},
+    {id:"GRD_S",name:"Grinder 2",      short:"Grind 2", kind:"grind",     group:"Grinding line"},
+    {id:"GRD_O",name:"Soorya Grinder", short:"Soorya",  kind:"grind",     group:"Grinding line"},
+    {id:"AC_A", name:"Autoclave A",    short:"AC-A",    kind:"autoclave", group:"Autoclaves"},
+    {id:"AC_M", name:"Autoclave M",    short:"AC-M",    kind:"autoclave", group:"Autoclaves"},
+    {id:"PR2",  name:"Pre-Refiner 2",  short:"PR2",     kind:"prerefiner",group:"Pre-Refiners"},
+    {id:"R1",   name:"Refiner 1",      short:"R1",      kind:"refiner",   group:"Refiners"},
+    {id:"R3",   name:"Refiner 3",      short:"R3",      kind:"refiner",   group:"Refiners"},
+    {id:"R4",   name:"Refiner 4",      short:"R4",      kind:"refiner",   group:"Refiners"},
+    {id:"PR1",  name:"Pre-Refiner 1",  short:"PR1",     kind:"coarse",    group:"Coarse line"},
+    {id:"R2",   name:"Refiner 2",      short:"R2",      kind:"coarse",    group:"Coarse line"}
+  ];
+  var GROUPS=["Grinding line","Autoclaves","Pre-Refiners","Refiners","Coarse line"];
+  var SHIFT_MIN=720;                 // 12 h shift
+  var TEMP_LIMIT=80;                 // °C bearing threshold
+  function M(id){ for(var i=0;i<MACHINES.length;i++) if(MACHINES[i].id===id) return MACHINES[i]; return {id:id,name:id,short:id,kind:"",group:"Other"}; }
+  function isGrind(id){ var m=M(id); return m.kind==="grind"; }
 
-  /* ===== domain ===== */
-  var MNAME={ "GRD_K":"Grinder 1","GRD_S":"Grinder 2","GRD_O":"Soorya Grinder","CRK":"Cracker",
-    "AC_A":"Autoclave A","AC_M":"Autoclave M","AC_N":"Autoclave N","AC_O":"Autoclave O",
-    "R1":"Refiner 1","R2":"Refiner 2","R3":"Refiner 3","R4":"Refiner 4","PR1":"Pre-Refiner 1","PR2":"Pre-Refiner 2" };
-  function mname(id){ return MNAME[id]||id||"Unknown"; }
-  function mshort(id){ var n=mname(id); return n; }
-  var QORDER=["Special","SuperFine","Fine","Medium","DRC"];
-  var POSCOLOR={ "1":"var(--steel)","2":"var(--in)","3":"var(--amber)","4":"var(--violet)" };
-  var POSHEX={ "1":"#7fa8c9","2":"#6cb83f","3":"#e8a13a","4":"#b58be0" };
-  var THRESHOLD=80; // °C bearing limit
+  var S={ tab:"prod", loading:true, err:"", runs:[], maint:[], bears:[],
+          prodDate:"", prodMachine:null, maintMonth:"", maintMachine:null, bearMachine:null };
 
-  /* ===== helpers ===== */
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
-  function populated(v){ return v!==null && v!==undefined && v!==""; }
-  function num(v){ var n=Number(v); return isNaN(n)?0:n; }
-  function pad(n){ return (n<10?"0":"")+n; }
-  function todayISO(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-  function daysAgoISO(n){ var d=new Date(Date.now()-n*86400000); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-  function tms(t){ if(!t) return 0; var d=new Date(t); var n=+d; return isNaN(n)?0:n; }
-  function fmtWhen(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return String(iso); return pad(d.getDate())+"/"+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes()); }
-  function fmtHM(iso){ var d=new Date(iso); if(isNaN(d)) return ""; return pad(d.getHours())+":"+pad(d.getMinutes()); }
-  var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  function fmtDay(iso){ if(!iso) return "—"; var p=String(iso).slice(0,10).split("-"); if(p.length<3) return String(iso); var d=new Date(p[0],+p[1]-1,p[2]); if(isNaN(d)) return String(iso); var wd=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]; return wd+" "+(+p[2])+" "+MON[+p[1]-1]; }
-  function n1(n){ return (Math.round(n*10)/10); }
-  function kg(n){ return n1(n).toLocaleString(); }
-  function money(n){ return n1(n).toLocaleString(); }
-
-  /* man-hours for a run: workers × running hours (fall back to runtime minutes) */
-  function manHours(r){ var h=num(r.hours_run); if(!h) h=num(r.runtime_min)/60; return num(r.workers)*h; }
-  function runTs(r){ return tms(r.ended_at||r.unloaded_at||r.loaded_at||r.started_at||r.shift_date); }
-  function runDay(r){ if(populated(r.shift_date)) return String(r.shift_date).slice(0,10); var t=runTs(r); if(!t) return "—"; var d=new Date(t); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-
-  /* ===== state ===== */
-  var ST={ from:"", to:"", runs:null, bearings:null, loading:false, error:"", quick:"30",
-           tab:"history",
-           bMachine:"", bPos:"all",
-           eBatch:"", eQual:"__all__", tariff:7 };
-
-  /* ===== data ===== */
-  function load(){
-    ST.loading=true; ST.error=""; setConn("load","loading "+ST.from+" → "+ST.to+"…"); render();
-    var runsUrl=SUPABASE_URL+"/rest/v1/runs?select=machine_id,line,kind,batch_no,formulation,capacity,quality,tyre_type,mesh,weight_kg,workers,hours_run,runtime_min,kwh,firewood_kg,elec_start,elec_end,started_at,ended_at,loaded_at,unloaded_at,shift,shift_date,supervisor"
-      +"&shift_date=gte."+encodeURIComponent(ST.from)+"&shift_date=lte."+encodeURIComponent(ST.to)+"&order=shift_date.asc";
-    var bUrl=SUPABASE_URL+"/rest/v1/bearing_logs?select=machine_id,machine,position,bearing_type,temp_c,ts,recorded_at,shift,shift_date,supervisor"
-      +"&shift_date=gte."+encodeURIComponent(ST.from)+"&shift_date=lte."+encodeURIComponent(ST.to)+"&order=recorded_at.asc";
-    Promise.all([ jget(runsUrl), jget(bUrl) ]).then(function(res){
-      ST.runs=res[0]||[]; ST.bearings=res[1]||[]; ST.loading=false;
-      setConn("live", ST.runs.length+" runs · "+ST.bearings.length+" bearing reads");
-      render();
-    }).catch(function(e){
-      ST.loading=false; ST.runs=ST.runs||[]; ST.bearings=ST.bearings||[]; ST.error=String(e.message||e);
-      setConn("err","couldn't load — "+ST.error); render();
-    });
+  /* ---------- helpers ---------- */
+  function num(v){ if(v==null||v==="") return null; var n=parseFloat(v); return isNaN(n)?null:n; }
+  function p2(n){ return (n<10?"0":"")+n; }
+  function fmtClockISO(iso){ if(!iso) return "—"; var d=new Date(iso); return p2(d.getHours())+":"+p2(d.getMinutes()); }
+  function isoDay(iso){ if(!iso) return ""; var d=new Date(iso); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
+  var MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDay(s){ if(!s) return "—"; var p=String(s).split("-"); if(p.length<3) return s; return parseInt(p[2],10)+" "+MO[parseInt(p[1],10)-1]+" "+p[0]; }
+  function fmtMonth(ym){ if(!ym) return "—"; var p=String(ym).split("-"); return MO[parseInt(p[1],10)-1]+" "+p[0]; }
+  function fmtH(h){ if(h==null) return "—"; return (Math.round(h*100)/100)+" h"; }
+  function fmtMinAsH(min){ if(min==null) return "—"; return (Math.round((min/60)*100)/100)+" h"; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function runHours(r){
+    if(num(r.hours_run)!=null) return num(r.hours_run);
+    if(num(r.hour_end)!=null && num(r.hour_start)!=null) return Math.max(0,num(r.hour_end)-num(r.hour_start));
+    if(num(r.runtime_min)!=null) return num(r.runtime_min)/60;
+    if(r.loaded_at && r.unloaded_at){ var d=(new Date(r.unloaded_at)-new Date(r.loaded_at))/3600000; return d>0?d:null; }
+    return null;
   }
-  function jget(url){ return fetch(url,{ headers:headers() }).then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+(t||"").slice(0,140)); }); return r.json(); }); }
-  function setConn(cls,txt){ var d=document.getElementById("dot"), t=document.getElementById("connTxt"); if(!d) return; d.className="dot "+(cls==="live"?"live":cls==="err"?"err":cls==="load"?"load":""); t.textContent=txt; }
+  function runKwh(r){ if(num(r.kwh)!=null) return num(r.kwh); if(num(r.elec_end)!=null&&num(r.elec_start)!=null) return Math.max(0,num(r.elec_end)-num(r.elec_start)); return null; }
+  function monthOf(dateStr){ if(!dateStr) return ""; var p=String(dateStr).split("-"); return p[0]+"-"+p[1]; }
 
-  /* ===== render shell ===== */
+  /* ---------- data ---------- */
+  function get(table){
+    return fetch(SB_URL+"/rest/v1/"+table+"?select=*&limit=50000",{
+      headers:{ apikey:SB_KEY, Authorization:"Bearer "+SB_KEY }
+    }).then(function(r){ if(!r.ok) throw new Error(table+" "+r.status); return r.json(); });
+  }
+  function loadAll(){
+    S.loading=true; S.err=""; render();
+    Promise.all([get("runs"),get("maintenance"),get("bearing_logs")]).then(function(res){
+      S.runs=res[0]||[]; S.maint=res[1]||[]; S.bears=res[2]||[];
+      // default selections to most recent data
+      var ds=S.runs.map(function(r){ return r.shift_date; }).filter(Boolean).sort();
+      S.prodDate=S.prodDate||(ds.length?ds[ds.length-1]:isoDay(new Date().toISOString()));
+      var months={}; S.maint.forEach(function(m){ var mo=monthOf(isoDay(m.down_start)); if(mo) months[mo]=1; });
+      S.runs.forEach(function(r){ var mo=monthOf(r.shift_date); if(mo) months[mo]=1; });
+      var mk=Object.keys(months).sort(); S.maintMonth=S.maintMonth||(mk.length?mk[mk.length-1]:monthOf(isoDay(new Date().toISOString())));
+      S.loading=false; render();
+    }).catch(function(e){ S.loading=false; S.err=String(e&&e.message||e); render(); });
+  }
+
+  /* ---------- render shell ---------- */
+  var view=document.getElementById("view");
   function render(){
-    syncTabs();
-    var v=document.getElementById("view");
-    if(ST.loading){ v.innerHTML=block("M3 12a9 9 0 1 0 3-6.7L3 8","Loading…","Scanning the plant database from "+esc(ST.from)+" to "+esc(ST.to)+"."); return; }
-    if(ST.error){ v.innerHTML=block("M12 9v4M12 17h.01M10.3 4 2.6 18a1.5 1.5 0 0 0 1.3 2.2h16.2A1.5 1.5 0 0 0 21.4 18L13.7 4Z","Couldn\u2019t reach the database",esc(ST.error)+"<br><br>Check the connection and tap Reload."); return; }
-    if(ST.tab==="history") v.innerHTML=viewHistory();
-    else if(ST.tab==="bearings") v.innerHTML=viewBearings();
-    else v.innerHTML=viewEfficiency();
-    bind();
-  }
-  function syncTabs(){ document.querySelectorAll("#tabs button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-tab")===ST.tab); }); }
-  function block(path,title,body){ return '<div class="empty"><svg viewBox="0 0 24 24"><path d="'+path+'"/></svg><b>'+title+'</b><p>'+body+'</p></div>'; }
-
-  /* ============================================================ */
-  /* VIEW 1 — DAILY HISTORY                                        */
-  /* ============================================================ */
-  function viewHistory(){
-    var runs=(ST.runs||[]).slice();
-    if(!runs.length) return note("Every captured run — grinders, autoclaves and refiners — grouped by shift day, newest first.")
-      + block("M3 7h18M3 12h18M3 17h18","No runs in this range","Nothing was logged between "+esc(ST.from)+" and "+esc(ST.to)+".");
-    // group by day
-    var byDay={};
-    runs.forEach(function(r){ var d=runDay(r); (byDay[d]=byDay[d]||[]).push(r); });
-    var days=Object.keys(byDay).sort(function(a,b){ return a<b?1:(a>b?-1:0); });
-    var html=note("Every captured run — grinders, autoclaves and refiners — grouped by shift day, newest first. Output and energy totals are summed per day.");
-    html+='<div class="ledger">';
-    days.forEach(function(d){
-      var list=byDay[d].slice().sort(function(a,b){ return runTs(b)-runTs(a); });
-      var tw=0,tk=0,tf=0,tmh=0;
-      list.forEach(function(r){ tw+=num(r.weight_kg); tk+=num(r.kwh); tf+=num(r.firewood_kg); tmh+=manHours(r); });
-      html+='<div class="dayhead"><span class="d">'+esc(fmtDay(d))+'</span><span class="tot">'
-        +'<span>out <b>'+kg(tw)+'</b> kg</span>'
-        +'<span>elec <b>'+kg(tk)+'</b> kWh</span>'
-        +(tf>0?'<span>firewood <b>'+kg(tf)+'</b> kg</span>':'')
-        +'<span>man-hrs <b>'+n1(tmh)+'</b></span>'
-        +'<span>'+list.length+' run'+(list.length===1?"":"s")+'</span></span></div>';
-      html+=list.map(histRow).join("");
-    });
-    html+='</div>';
-    return html;
-  }
-  function histRow(r){
-    var mid=r.machine_id||"";
-    var isCoarse=String(r.line||"").toLowerCase()==="coarse";
-    var hasBatch=populated(r.batch_no);
-    var ident;
-    if(hasBatch && populated(r.quality)){
-      ident='<span class="chip batch">#'+esc(r.batch_no)+'</span><span class="chip q">'+esc(r.quality)+'</span>';
-    } else if(hasBatch){
-      ident='<span class="chip '+(isCoarse?'coarse':'batch')+'">#'+esc(r.batch_no)+'</span>'+(r.shift?'<span class="chip shift">'+esc(r.shift)+'</span>':'');
-    } else {
-      ident='<span class="chip '+(isCoarse?'coarse':'shift')+'">'+esc(r.shift||"shift")+'</span>'+(populated(r.quality)?'<span class="chip q">'+esc(r.quality)+'</span>':'');
-    }
-    var metaBits=[];
-    if(populated(r.formulation)) metaBits.push(esc(r.formulation));
-    if(populated(r.passes) && num(r.passes)>1) metaBits.push(num(r.passes)+" passes");
-    metaBits.push(r.supervisor?("\uD83D\uDC64 "+esc(r.supervisor)):'<span style="color:var(--amber)">no supervisor</span>');
-    var when=(r.ended_at||r.unloaded_at)?fmtWhen(r.ended_at||r.unloaded_at):(esc(r.shift||"")+" shift");
-    var en=[];
-    if(num(r.kwh)>0) en.push(kg(num(r.kwh))+" kWh");
-    if(num(r.firewood_kg)>0) en.push(kg(num(r.firewood_kg))+" kg fw");
-    var wt=num(r.weight_kg)>0?(kg(num(r.weight_kg))+' <span style="font-size:11px;color:var(--faint)">kg</span>'):'<span style="color:var(--faint)">—</span>';
-    return '<div class="ev">'
-      +'<div class="mc">'+esc(mname(mid))+'<small>'+esc(when)+'</small></div>'
-      +'<div class="body"><div class="ident">'+ident+'</div><div class="meta">'+metaBits.join(" · ")+'</div></div>'
-      +'<div class="amt"><div class="kg">'+wt+'</div>'+(en.length?'<div class="en">'+en.join(" · ")+'</div>':'')+'</div>'
-      +'</div>';
+    document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-tab")===S.tab); });
+    if(S.loading){ view.innerHTML='<div class="spin">Loading plant data…</div>'; return; }
+    if(S.err){ view.innerHTML='<div class="err">Couldn\'t load data: '+esc(S.err)+'<br><span class="muted">Check internet, then tap Refresh.</span></div>'; return; }
+    if(S.tab==="prod") view.innerHTML=S.prodMachine?prodDetail():prodList();
+    else if(S.tab==="maint") view.innerHTML=S.maintMachine?maintDetail():maintList();
+    else view.innerHTML=S.bearMachine?bearDetail():bearList();
+    wire();
   }
 
-  /* ============================================================ */
-  /* VIEW 2 — BEARING TEMPERATURE MONITORING                      */
-  /* ============================================================ */
-  function viewBearings(){
-    var reads=(ST.bearings||[]).slice();
-    // machines present
-    var mset={}; reads.forEach(function(r){ if(populated(r.machine_id)) mset[r.machine_id]=1; });
-    var machines=Object.keys(mset).sort(function(a,b){ return mname(a)<mname(b)?-1:1; });
-    if(!machines.length){
-      return note("Pick a machine and bearing to plot its temperature trend against the "+THRESHOLD+"\u00b0C limit.")
-        + block("M12 14.5V6 M9 6a3 3 0 0 1 6 0","No bearing readings in this range","No bearing temperatures were logged between "+esc(ST.from)+" and "+esc(ST.to)+".");
-    }
-    if(!ST.bMachine || mset[ST.bMachine]!==1) ST.bMachine=machines[0];
-
-    // positions present for this machine
-    var pset={}; reads.forEach(function(r){ if(r.machine_id===ST.bMachine && populated(r.position)) pset[String(r.position)]=1; });
-    var positions=Object.keys(pset).sort();
-    if(ST.bPos!=="all" && pset[ST.bPos]!==1) ST.bPos="all";
-
-    // build controls
-    var mOpts=machines.map(function(m){ return '<option value="'+esc(m)+'"'+(m===ST.bMachine?" selected":"")+'>'+esc(mname(m))+'</option>'; }).join("");
-    var posBtns='<button data-pos="all" class="'+(ST.bPos==="all"?"on":"")+'" style="'+(ST.bPos==="all"?"background:var(--amber)":"")+'">All</button>'
-      + positions.map(function(p){
-          var on=ST.bPos===p;
-          return '<button data-pos="'+esc(p)+'" class="'+(on?"on":"")+'" style="'+(on?("background:"+POSHEX[p]+";border-color:transparent"):"")+'">'+esc(p)+'</button>';
-        }).join("");
-
-    var ctl='<div class="subctl">'
-      +'<div class="ctl"><label>Machine</label><select id="bMachine">'+mOpts+'</select></div>'
-      +'<div class="ctl"><label>Bearing position</label><div class="poschips" id="posChips">'+posBtns+'</div></div>'
-      +'</div>';
-
-    // series + stats
-    var wanted = ST.bPos==="all" ? positions : [ST.bPos];
-    var series=[]; var allPts=[]; var overCount=0; var maxT=0; var latest=null;
-    wanted.forEach(function(p){
-      var pts=reads.filter(function(r){ return r.machine_id===ST.bMachine && String(r.position)===p && populated(r.temp_c); })
-                   .map(function(r){ return { x:tms(r.recorded_at||r.ts), y:num(r.temp_c), sup:r.supervisor||"" }; })
-                   .filter(function(pt){ return pt.x>0; })
-                   .sort(function(a,b){ return a.x-b.x; });
-      pts.forEach(function(pt){ allPts.push(pt); if(pt.y>=THRESHOLD) overCount++; if(pt.y>maxT) maxT=pt.y; if(!latest||pt.x>latest.x) latest=pt; });
-      if(pts.length) series.push({ name:"Bearing "+p, color:POSHEX[p]||"#7fa8c9", points:pts });
-    });
-
-    var head=note("Temperature trend for the selected bearing against the "+THRESHOLD+"\u00b0C limit. Points on or above the limit are marked red. "+(ST.bPos==="all"?"All positions overlaid.":"Single bearing."));
-    if(!allPts.length){
-      return ctl+head+block("M12 14.5V6 M9 6a3 3 0 0 1 6 0","No readings for this bearing","Try another position or widen the date range.");
-    }
-
-    var avg=allPts.reduce(function(s,p){return s+p.y;},0)/allPts.length;
-    var stats='<div class="metrics">'
-      +metric("Latest", latest?n1(latest.y):"—", "\u00b0C", latest?fmtWhen(latest.x):"", latest&&latest.y>=THRESHOLD?"var(--hot)":"var(--steel)")
-      +metric("Peak in range", n1(maxT), "\u00b0C", "highest reading", maxT>=THRESHOLD?"var(--hot)":"var(--amber)")
-      +metric("Average", n1(avg), "\u00b0C", allPts.length+" readings", "var(--elec)")
-      +metric("Over "+THRESHOLD+"\u00b0C", overCount, "", overCount?"needs attention":"all within limit", overCount?"var(--hot)":"var(--in)")
-      +'</div>';
-
-    var legend='<div class="legend">'+series.map(function(s){ return '<span><i style="background:'+s.color+'"></i>'+esc(s.name)+'</span>'; }).join("")
-      +'<span><i class="dash"></i>'+THRESHOLD+'\u00b0C limit</span></div>';
-
-    return ctl+head+stats+'<div class="chartwrap"><div class="chart">'+tempChart(series)+'</div>'+legend+'</div>';
-  }
-
-  /* SVG temperature line chart with a fixed 80°C threshold line */
-  function tempChart(series){
-    var W=720, H=320, padL=42, padR=14, padT=16, padB=30;
-    var x0=padL, x1=W-padR, y0=H-padB, y1=padT;
-    var xmin=Infinity, xmax=-Infinity, ymax=0;
-    series.forEach(function(s){ s.points.forEach(function(p){ if(p.x<xmin) xmin=p.x; if(p.x>xmax) xmax=p.x; if(p.y>ymax) ymax=p.y; }); });
-    if(!isFinite(xmin)){ xmin=0; xmax=1; }
-    if(xmin===xmax){ xmin-=1800000; xmax+=1800000; } // ±30 min so a single point sits centred
-    var yTop=Math.max(100, Math.ceil((Math.max(ymax,THRESHOLD)+10)/20)*20);
-    function X(v){ return x0+(x1-x0)*((v-xmin)/(xmax-xmin)); }
-    function Y(v){ return y0+(y1-y0)*(v/yTop); }
-
-    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Bearing temperature chart">';
-    // y gridlines + labels
-    for(var t=0;t<=yTop;t+=20){
-      var gy=Y(t);
-      svg+='<line x1="'+x0+'" y1="'+gy.toFixed(1)+'" x2="'+x1+'" y2="'+gy.toFixed(1)+'" stroke="#2a2520" stroke-width="1"/>';
-      svg+='<text x="'+(x0-8)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="#6f665a" font-family="ui-monospace,monospace">'+t+'</text>';
-    }
-    // x ticks (about 5)
-    var ticks=5;
-    for(var i=0;i<=ticks;i++){
-      var tx=xmin+(xmax-xmin)*(i/ticks); var gx=X(tx);
-      svg+='<line x1="'+gx.toFixed(1)+'" y1="'+y1+'" x2="'+gx.toFixed(1)+'" y2="'+y0+'" stroke="#211d18" stroke-width="1"/>';
-      svg+='<text x="'+gx.toFixed(1)+'" y="'+(y0+17)+'" text-anchor="middle" font-size="9.5" fill="#6f665a" font-family="ui-monospace,monospace">'+esc(fmtWhen(tx))+'</text>';
-    }
-    // threshold line at 80
-    var ty=Y(THRESHOLD);
-    svg+='<line x1="'+x0+'" y1="'+ty.toFixed(1)+'" x2="'+x1+'" y2="'+ty.toFixed(1)+'" stroke="#e5503f" stroke-width="1.6" stroke-dasharray="6 5"/>';
-    svg+='<text x="'+(x1-3)+'" y="'+(ty-6).toFixed(1)+'" text-anchor="end" font-size="10" fill="#e5503f" font-family="ui-monospace,monospace">'+THRESHOLD+'\u00b0C limit</text>';
-    // series lines + points
-    series.forEach(function(s){
-      var d=s.points.map(function(p,idx){ return (idx?"L":"M")+X(p.x).toFixed(1)+" "+Y(p.y).toFixed(1); }).join(" ");
-      svg+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>';
-      s.points.forEach(function(p){
-        var hot=p.y>=THRESHOLD;
-        svg+='<circle cx="'+X(p.x).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="'+(hot?3.6:2.6)+'" fill="'+(hot?"#e5503f":s.color)+'"'+(hot?' stroke="#1b0e0c" stroke-width="1"':'')+'><title>'+n1(p.y)+'\u00b0C · '+esc(fmtWhen(p.x))+(p.sup?" · "+esc(p.sup):"")+'</title></circle>';
+  /* ---------- Section 1: Production ---------- */
+  function dayRuns(date){ return S.runs.filter(function(r){ return r.shift_date===date; }); }
+  function prodList(){
+    var dates={}; S.runs.forEach(function(r){ if(r.shift_date) dates[r.shift_date]=1; });
+    var dlist=Object.keys(dates).sort().reverse();
+    var dOpts=dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(S.prodDate===d?" selected":"")+'>'+esc(fmtDay(d))+'</option>'; }).join("");
+    var rs=dayRuns(S.prodDate);
+    var totK=0,totW=0; rs.forEach(function(r){ var k=runKwh(r); if(k!=null) totK+=k; var w=num(r.weight_kg); if(w!=null) totW+=w; });
+    var html='<div class="panel"><label>Production day</label><select id="prod-date">'+(dOpts||'<option>No data</option>')+'</select>'+
+      '<div class="kpis"><div class="kpi"><b>'+rs.length+'</b><span>runs</span></div>'+
+      '<div class="kpi"><b>'+(Math.round(totK))+'</b><span>kWh</span></div>'+
+      '<div class="kpi"><b>'+(Math.round(totW))+'</b><span>kg out</span></div></div></div>';
+    GROUPS.forEach(function(g){
+      var ms=MACHINES.filter(function(m){ return m.group===g; });
+      var any=ms.some(function(m){ return rs.some(function(r){ return r.machine_id===m.id; }); });
+      html+='<div class="grouphead">'+esc(g)+'</div>';
+      ms.forEach(function(m){
+        var mr=rs.filter(function(r){ return r.machine_id===m.id; });
+        var dtTxt="";
+        if(isGrind(m.id) && mr.length){
+          var dd=grindDowntime(mr); dtTxt=' · <span class="dt">'+fmtMinAsH(dd.total)+' down</span>';
+        }
+        var b = mr.length ? '<span class="badge">'+mr.length+' run'+(mr.length>1?'s':'')+'</span>' : '<span class="badge none">—</span>';
+        html+='<div class="mrow" data-prod-machine="'+m.id+'"><div><div class="mn">'+esc(m.name)+'</div>'+
+          '<div class="mk">'+esc(m.short)+' · '+esc(m.kind)+dtTxt+'</div></div>'+
+          '<div class="row" style="gap:8px">'+b+'<span class="chev">›</span></div></div>';
       });
     });
-    // axis frame
-    svg+='<line x1="'+x0+'" y1="'+y1+'" x2="'+x0+'" y2="'+y0+'" stroke="#39322a" stroke-width="1"/>';
-    svg+='<line x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" stroke="#39322a" stroke-width="1"/>';
-    svg+='</svg>';
-    return svg;
+    return html;
   }
+  function grindDowntime(runs){
+    // per shift: 12h - sum(run hours). runs are the grinder rows for one machine on one day.
+    var byShift={Day:0,Night:0}, hasShift={Day:false,Night:false};
+    runs.forEach(function(r){ var sh=(r.shift==="Night")?"Night":"Day"; var h=runHours(r); if(h!=null){ byShift[sh]+=h*60; hasShift[sh]=true; } });
+    var out={Day:null,Night:null,total:0,runMin:{Day:byShift.Day,Night:byShift.Night}};
+    ["Day","Night"].forEach(function(sh){ if(hasShift[sh]){ var dt=Math.max(0,SHIFT_MIN-byShift[sh]); out[sh]=dt; out.total+=dt; } });
+    return out;
+  }
+  function prodDetail(){
+    var m=M(S.prodMachine), rs=dayRuns(S.prodDate).filter(function(r){ return r.machine_id===m.id; });
+    rs.sort(function(a,b){ return (a.started_at||a.loaded_at||"")<(b.started_at||b.loaded_at||"")?-1:1; });
+    var html='<div class="back" data-back="prod">‹ Back to '+esc(fmtDay(S.prodDate))+'</div>'+
+      '<div class="panel"><div class="row"><div><h1 style="font-size:18px">'+esc(m.name)+'</h1>'+
+      '<div class="sub">'+esc(fmtDay(S.prodDate))+' · '+rs.length+' run'+(rs.length===1?'':'s')+'</div></div></div></div>';
 
-  /* ============================================================ */
-  /* VIEW 3 — PRODUCTION EFFICIENCY                               */
-  /* ============================================================ */
-  function viewEfficiency(){
-    var runs=(ST.runs||[]).slice();
-    // batches present, most-recent first
-    var bmap={};
-    runs.forEach(function(r){ if(populated(r.batch_no)){ var k=String(r.batch_no); var t=runTs(r); if(!bmap[k]||t>bmap[k]) bmap[k]=t; } });
-    var batches=Object.keys(bmap).sort(function(a,b){ return bmap[b]-bmap[a]; });
-    if(!batches.length){
-      return note("Pick a batch and grade to see how much was produced per man-hour and the electricity cost per kilo for that line.")
-        + block("M4 20V10M10 20V4M16 20v-7M22 20H2","No batches in this range","Efficiency needs graded refiner runs with a batch number. Widen the date range or check the special line.");
+    if(isGrind(m.id)){
+      ["Day","Night"].forEach(function(sh){
+        var sr=rs.filter(function(r){ return (r.shift==="Night"?"Night":"Day")===sh; });
+        if(!sr.length) return;
+        var runMin=0; sr.forEach(function(r){ var h=runHours(r); if(h!=null) runMin+=h*60; });
+        var dt=Math.max(0,SHIFT_MIN-runMin);
+        html+='<div class="shiftbox"><div class="sh">'+sh+' shift <span class="muted" style="font-weight:400">· 08:30–'+(sh==="Day"?"20:30":"08:30")+'</span></div>'+
+          '<div class="params">'+
+          '<span class="chiplet">Ran <b>'+fmtMinAsH(runMin)+'</b></span>'+
+          '<span class="chiplet">Downtime <b class="dt">'+fmtMinAsH(dt)+'</b></span>'+
+          '<span class="chiplet">of 12 h shift</span></div></div>';
+      });
     }
-    if(!ST.eBatch || bmap[ST.eBatch]==null) ST.eBatch=batches[0];
+    if(!rs.length){ html+='<div class="empty">No runs for this machine on '+esc(fmtDay(S.prodDate))+'.</div>'; return html; }
+    rs.forEach(function(r){ html+=runCard(r); });
+    return html;
+  }
+  function runCard(r){
+    var m=M(r.machine_id), isAuto=(r.kind==="autoclave");
+    var h=runHours(r), k=runKwh(r), w=num(r.weight_kg), wk=num(r.workers);
+    var ttl = isAuto ? ('Batch '+esc(r.batch_no||"—")) : (r.batch_no?('Batch '+esc(r.batch_no)):(m.kind==="grind"?(r.shift||""):'Run'));
+    var when = (r.shift?esc(r.shift):'')+(r.supervisor?' · '+esc(r.supervisor):'');
+    var P=[];
+    P.push('<span class="chiplet">Run <b>'+fmtH(h)+'</b></span>');
+    if(k!=null) P.push('<span class="chiplet">Energy <b>'+(Math.round(k*10)/10)+'</b> kWh</span>');
+    if(k!=null&&h&&h>0) P.push('<span class="chiplet">Load <b>'+(Math.round((k/h)*10)/10)+'</b> kWh/h</span>');
+    if(num(r.firewood_kg)!=null) P.push('<span class="chiplet">Firewood <b>'+num(r.firewood_kg)+'</b> kg</span>');
+    if(wk!=null) P.push('<span class="chiplet">Crew <b>'+wk+'</b></span>');
+    if(w!=null) P.push('<span class="chiplet">Output <b>'+w+'</b> kg</span>');
+    if(w!=null&&k!=null&&w>0) P.push('<span class="chiplet">'+(Math.round((k/w)*1000)/1000)+' kWh/kg</span>');
+    if(w!=null&&wk!=null&&h&&wk*h>0) P.push('<span class="chiplet">'+(Math.round((w/(wk*h))*10)/10)+' kg/man-h</span>');
+    if(r.quality) P.unshift('<span class="qchip">'+esc(r.quality)+'</span>');
+    var loadLine = isAuto ? '<div class="when">⤓ load '+fmtClockISO(r.loaded_at)+' · ⤒ unload '+fmtClockISO(r.unloaded_at)+
+        ((r.loaded_at&&r.unloaded_at&&isoDay(r.loaded_at)!==isoDay(r.unloaded_at))?' <span class="muted">('+esc(fmtDay(isoDay(r.unloaded_at)))+')</span>':'')+'</div>' : '';
+    return '<div class="runcard"><div class="top"><div class="ttl">'+ttl+'</div><div class="when">'+when+'</div></div>'+
+      loadLine+'<div class="params">'+P.join("")+'</div></div>';
+  }
 
-    // qualities present for the chosen batch
-    var qset={}; runs.forEach(function(r){ if(String(r.batch_no||"")===ST.eBatch && populated(r.quality)) qset[r.quality]=1; });
-    var quals=Object.keys(qset).sort(function(a,b){ return QORDER.indexOf(a)-QORDER.indexOf(b); });
-    if(ST.eQual!=="__all__" && qset[ST.eQual]!==1) ST.eQual="__all__";
-
-    var bOpts=batches.map(function(b){ return '<option value="'+esc(b)+'"'+(b===ST.eBatch?" selected":"")+'>#'+esc(b)+'</option>'; }).join("");
-    var qOpts='<option value="__all__"'+(ST.eQual==="__all__"?" selected":"")+'>All grades (whole batch)</option>'
-      + quals.map(function(q){ return '<option value="'+esc(q)+'"'+(q===ST.eQual?" selected":"")+'>'+esc(q)+'</option>'; }).join("");
-
-    var ctl='<div class="subctl">'
-      +'<div class="ctl"><label>Batch</label><select id="eBatch">'+bOpts+'</select></div>'
-      +'<div class="ctl"><label>Grade / line</label><select id="eQual">'+qOpts+'</select></div>'
-      +'<div class="ctl"><label>Electricity tariff (\u20b9/kWh)</label><input type="number" id="tariff" min="0" step="0.1" value="'+esc(ST.tariff)+'" style="width:120px"></div>'
-      +'</div>';
-
-    // gather the line
-    var line=runs.filter(function(r){
-      if(String(r.batch_no||"")!==ST.eBatch) return false;
-      if(ST.eQual==="__all__") return true;
-      return String(r.quality||"")===ST.eQual;
+  /* ---------- Section 2: Maintenance ---------- */
+  function maintList(){
+    var months={}; S.maint.forEach(function(m){ var mo=monthOf(isoDay(m.down_start)); if(mo) months[mo]=1; });
+    var mk=Object.keys(months).sort().reverse();
+    var mOpts=mk.map(function(mo){ return '<option value="'+esc(mo)+'"'+(S.maintMonth===mo?" selected":"")+'>'+esc(fmtMonth(mo))+'</option>'; }).join("");
+    var evs=S.maint.filter(function(m){ return monthOf(isoDay(m.down_start))===S.maintMonth; });
+    var totMin=0, cnt=evs.length; evs.forEach(function(m){ var d=num(m.downtime_min); if(d!=null) totMin+=d; });
+    var html='<div class="panel"><label>Month</label><select id="maint-month">'+(mOpts||'<option>No data</option>')+'</select>'+
+      '<div class="kpis"><div class="kpi"><b>'+fmtMinAsH(totMin)+'</b><span>total downtime</span></div>'+
+      '<div class="kpi"><b>'+cnt+'</b><span>breakdowns</span></div></div></div>';
+    // per machine totals
+    var per={}; evs.forEach(function(m){ var id=m.machine_id||"?"; per[id]=per[id]||{min:0,n:0}; per[id].min+=(num(m.downtime_min)||0); per[id].n++; });
+    var ids=Object.keys(per).sort(function(a,b){ return per[b].min-per[a].min; });
+    html+='<div class="grouphead">Downtime by machine</div>';
+    if(!ids.length){ html+='<div class="empty">No breakdowns logged in '+esc(fmtMonth(S.maintMonth))+'.</div>'; return html; }
+    ids.forEach(function(id){
+      var m=M(id);
+      html+='<div class="mrow" data-maint-machine="'+esc(id)+'"><div><div class="mn">'+esc(m.name)+'</div>'+
+        '<div class="mk">'+per[id].n+' breakdown'+(per[id].n>1?'s':'')+'</div></div>'+
+        '<div class="row" style="gap:8px"><span class="badge hot">'+fmtMinAsH(per[id].min)+'</span><span class="chev">›</span></div></div>';
     });
-    var prod=0,mh=0,kwh=0,fw=0;
-    line.forEach(function(r){ prod+=num(r.weight_kg); mh+=manHours(r); kwh+=num(r.kwh); fw+=num(r.firewood_kg); });
-    var tariff=num(ST.tariff);
-    var elecCost=kwh*tariff;
-    var perMH = mh>0 ? prod/mh : null;
-    var costKg = prod>0 ? elecCost/prod : null;
-    var kwhKg = prod>0 ? kwh/prod : null;
-
-    var label="#"+ST.eBatch+(ST.eQual==="__all__"?" · whole batch":" · "+ST.eQual);
-    var head=note("Efficiency for <b>"+esc(label)+"</b>. The line is every run tagged with this batch"
-      +(ST.eQual==="__all__"?" (all grades, so the shared autoclave cook is included)":" and grade")
-      +". Man-hours = workers \u00d7 running hours; electricity cost = energy \u00d7 tariff.");
-
-    var headline='<div class="metrics">'
-      +metric("Production / man-hour", perMH==null?"—":n1(perMH), "kg/mh", "output \u00f7 man-hours", "var(--amber)", true)
-      +metric("Electricity cost / kilo", costKg==null?"—":("\u20b9"+n1(costKg)), "", "energy cost \u00f7 output", "var(--elec)", true)
-      +metric("Specific energy", kwhKg==null?"—":n1(kwhKg), "kWh/kg", "tariff-independent", "var(--steel)")
-      +'</div>';
-
-    var support='<div class="metrics">'
-      +metric("Output produced", kg(prod), "kg", ST.eQual==="__all__"?"all grades":esc(ST.eQual)+" grade", "var(--in)")
-      +metric("Total man-hours", n1(mh), "mh", line.length+" runs in line", "var(--violet)")
-      +metric("Energy used", kg(kwh), "kWh", "\u20b9"+money(elecCost)+" at \u20b9"+n1(tariff)+"/kWh", "var(--elec)")
-      +(fw>0?metric("Firewood (autoclave)", kg(fw), "kg", "thermal — not costed here", "var(--out)"):"")
-      +'</div>';
-
-    // contributing runs
-    var rows=line.slice().sort(function(a,b){ return runTs(a)-runTs(b); }).map(function(r){
-      return '<tr><td>'+esc(mname(r.machine_id))+'</td>'
-        +'<td>'+(populated(r.quality)?esc(r.quality):'<span style="color:var(--faint)">—</span>')+'</td>'
-        +'<td class="n">'+(num(r.weight_kg)>0?kg(num(r.weight_kg)):"—")+'</td>'
-        +'<td class="n">'+n1(manHours(r))+'</td>'
-        +'<td class="n">'+(num(r.kwh)>0?kg(num(r.kwh)):"—")+'</td></tr>';
-    }).join("");
-    var tbl='<table class="tbl"><thead><tr><th>Machine</th><th>Grade</th><th class="n">Output kg</th><th class="n">Man-hrs</th><th class="n">kWh</th></tr></thead><tbody>'
-      +rows
-      +'<tr class="totrow"><td>Line total</td><td></td><td class="n">'+kg(prod)+'</td><td class="n">'+n1(mh)+'</td><td class="n">'+kg(kwh)+'</td></tr>'
-      +'</tbody></table>';
-
-    return ctl+head+headline+support+'<div class="note" style="margin-top:18px">Contributing runs</div>'+tbl;
+    return html;
+  }
+  function maintDetail(){
+    var m=M(S.maintMachine);
+    var evs=S.maint.filter(function(x){ return x.machine_id===S.maintMachine && monthOf(isoDay(x.down_start))===S.maintMonth; });
+    evs.sort(function(a,b){ return (a.down_start||"")<(b.down_start||"")?1:-1; });
+    var tot=0; evs.forEach(function(e){ tot+=(num(e.downtime_min)||0); });
+    var html='<div class="back" data-back="maint">‹ Back to '+esc(fmtMonth(S.maintMonth))+'</div>'+
+      '<div class="panel"><div class="row"><div><h1 style="font-size:18px">'+esc(m.name)+'</h1>'+
+      '<div class="sub">'+esc(fmtMonth(S.maintMonth))+' · '+fmtMinAsH(tot)+' down · '+evs.length+' event'+(evs.length===1?'':'s')+'</div></div></div></div>';
+    evs.forEach(function(e){
+      html+='<div class="runcard"><div class="top"><div class="ttl">'+fmtMinAsH(num(e.downtime_min))+' down</div>'+
+        '<div class="when">'+esc(fmtDay(isoDay(e.down_start)))+' · '+fmtClockISO(e.down_start)+' → '+fmtClockISO(e.repaired_at)+'</div></div>'+
+        '<div class="reasons">'+
+          (e.root_cause?'<div><span class="lab">Root cause</span><br>'+esc(e.root_cause)+'</div>':'')+
+          (e.resolution?'<div><span class="lab">How it was resolved</span><br>'+esc(e.resolution)+'</div>':'')+
+          (e.prevention?'<div><span class="lab">Prevention</span><br>'+esc(e.prevention)+'</div>':'')+
+          ((!e.root_cause&&!e.resolution&&!e.prevention)?'<div class="muted">No reason recorded.</div>':'')+
+        '</div></div>';
+    });
+    return html;
   }
 
-  /* ===== small builders ===== */
-  function metric(nm,big,unit,sub,accent,hero){
-    return '<div class="metric'+(hero?" hero":"")+'" style="--accent:'+(accent||"var(--steel)")+'">'
-      +'<div class="nm">'+esc(nm)+'</div>'
-      +'<div class="big">'+esc(String(big))+(unit?' <small>'+esc(unit)+'</small>':'')+'</div>'
-      +(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
+  /* ---------- Section 3: Bearings ---------- */
+  function bearMachines(){
+    var ids={}; S.bears.forEach(function(b){ if(b.machine_id) ids[b.machine_id]=1; });
+    // keep roster order, only machines with bearing capability
+    return MACHINES.filter(function(m){ return m.kind!=="autoclave"; }).map(function(m){ return { m:m, has:!!ids[m.id] }; });
   }
-  function note(html){ return '<div class="note">'+html+'</div>'; }
+  function bearList(){
+    var html='<div class="panel"><div class="sub">Tap a machine to see each bearing/bush temperature trend. Threshold '+TEMP_LIMIT+' °C.</div></div>';
+    var list=bearMachines();
+    GROUPS.forEach(function(g){
+      var items=list.filter(function(x){ return x.m.group===g; });
+      if(!items.length) return;
+      html+='<div class="grouphead">'+esc(g)+'</div>';
+      items.forEach(function(x){
+        var cnt=S.bears.filter(function(b){ return b.machine_id===x.m.id; }).length;
+        var type=(x.m.id==="PR1"||x.m.id==="R1"||x.m.id==="R2"||x.m.id==="GRD_K")?"bush":"bearing";
+        html+='<div class="mrow" data-bear-machine="'+x.m.id+'"><div><div class="mn">'+esc(x.m.name)+'</div>'+
+          '<div class="mk">'+type+' · '+(cnt?cnt+' readings':'no readings')+'</div></div>'+
+          '<div class="row" style="gap:8px">'+(cnt?'<span class="badge">'+cnt+'</span>':'<span class="badge none">—</span>')+'<span class="chev">›</span></div></div>';
+      });
+    });
+    return html;
+  }
+  function bearDetail(){
+    var m=M(S.bearMachine);
+    var logs=S.bears.filter(function(b){ return b.machine_id===m.id; });
+    var html='<div class="back" data-back="bear">‹ Back to bearings</div>'+
+      '<div class="panel"><div class="row"><div><h1 style="font-size:18px">'+esc(m.name)+'</h1>'+
+      '<div class="sub">'+logs.length+' readings · threshold '+TEMP_LIMIT+' °C</div></div></div></div>';
+    if(!logs.length){ html+='<div class="empty">No bearing readings yet for '+esc(m.name)+'.</div>'; return html; }
+    var positions={}; logs.forEach(function(b){ var p=b.position||"—"; (positions[p]=positions[p]||[]).push(b); });
+    Object.keys(positions).sort().forEach(function(pos){
+      var pts=positions[pos].map(function(b){ return { t:+new Date(b.recorded_at||b.ts), v:num(b.temp_c) }; })
+        .filter(function(d){ return d.v!=null && !isNaN(d.t); }).sort(function(a,b){ return a.t-b.t; });
+      var type=(logs[0].bearing_type)||"bearing";
+      var last=pts.length?pts[pts.length-1].v:null;
+      var mx=pts.reduce(function(a,d){ return Math.max(a,d.v); },0);
+      html+='<div class="panel"><div class="row"><div class="ttl" style="font-weight:600">'+esc(type)+' '+esc(pos)+'</div>'+
+        '<div class="muted" style="font-size:12px">last '+(last!=null?last+'°':'—')+' · max '+(mx?mx+'°':'—')+'</div></div>'+
+        chart(pts)+'</div>';
+    });
+    return html;
+  }
+  function chart(pts){
+    if(!pts.length) return '<div class="empty">No readings.</div>';
+    var W=680,H=200,padL=34,padR=12,padT=14,padB=24;
+    var t0=pts[0].t, t1=pts[pts.length-1].t; if(t1===t0) t1=t0+1;
+    var vmax=Math.max(TEMP_LIMIT+10, pts.reduce(function(a,d){return Math.max(a,d.v);},0)+8);
+    var vmin=Math.min(20, pts.reduce(function(a,d){return Math.min(a,d.v);},9999)-5); if(vmin<0)vmin=0;
+    function X(t){ return padL+(t-t0)/(t1-t0)*(W-padL-padR); }
+    function Y(v){ return padT+(1-(v-vmin)/(vmax-vmin))*(H-padT-padB); }
+    var gl=""; for(var gv=Math.ceil(vmin/20)*20; gv<=vmax; gv+=20){ var y=Y(gv); gl+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="#1d2731"/><text x="2" y="'+(y+3)+'" fill="#6f818f" font-size="9">'+gv+'</text>'; }
+    var ty=Y(TEMP_LIMIT);
+    var thr='<line x1="'+padL+'" y1="'+ty+'" x2="'+(W-padR)+'" y2="'+ty+'" stroke="#ef6b5b" stroke-width="1.2" stroke-dasharray="5 4"/><text x="'+(W-padR)+'" y="'+(ty-4)+'" fill="#ef6b5b" font-size="9" text-anchor="end">'+TEMP_LIMIT+'°</text>';
+    var d=""; pts.forEach(function(pt,i){ d+=(i?" L":"M")+X(pt.t).toFixed(1)+" "+Y(pt.v).toFixed(1); });
+    var line='<path d="'+d+'" fill="none" stroke="#7fb1d8" stroke-width="1.8"/>';
+    var dots=pts.map(function(pt){ var hot=pt.v>=TEMP_LIMIT; return '<circle cx="'+X(pt.t).toFixed(1)+'" cy="'+Y(pt.v).toFixed(1)+'" r="'+(hot?3.2:2.2)+'" fill="'+(hot?"#ef6b5b":"#7fb1d8")+'"/>'; }).join("");
+    var tlab='<text x="'+padL+'" y="'+(H-6)+'" fill="#6f818f" font-size="9">'+fmtDay(isoDay(new Date(t0).toISOString()))+'</text>'+
+             '<text x="'+(W-padR)+'" y="'+(H-6)+'" fill="#6f818f" font-size="9" text-anchor="end">'+fmtDay(isoDay(new Date(t1).toISOString()))+'</text>';
+    return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+gl+thr+line+dots+tlab+'</svg>';
+  }
 
-  /* ===== events ===== */
-  function bind(){
-    var bM=document.getElementById("bMachine"); if(bM) bM.addEventListener("change",function(){ ST.bMachine=bM.value; ST.bPos="all"; render(); });
-    var pc=document.getElementById("posChips"); if(pc) pc.querySelectorAll("button").forEach(function(b){ b.addEventListener("click",function(){ ST.bPos=b.getAttribute("data-pos"); render(); }); });
-    var eB=document.getElementById("eBatch"); if(eB) eB.addEventListener("change",function(){ ST.eBatch=eB.value; ST.eQual="__all__"; render(); });
-    var eQ=document.getElementById("eQual"); if(eQ) eQ.addEventListener("change",function(){ ST.eQual=eQ.value; render(); });
-    var tf=document.getElementById("tariff"); if(tf) tf.addEventListener("input",function(){ ST.tariff=tf.value; render(); });
+  /* ---------- wiring ---------- */
+  function wire(){
+    var pd=document.getElementById("prod-date"); if(pd) pd.addEventListener("change",function(){ S.prodDate=pd.value; S.prodMachine=null; render(); });
+    var mm=document.getElementById("maint-month"); if(mm) mm.addEventListener("change",function(){ S.maintMonth=mm.value; S.maintMachine=null; render(); });
+    view.querySelectorAll("[data-prod-machine]").forEach(function(el){ el.addEventListener("click",function(){ S.prodMachine=el.getAttribute("data-prod-machine"); render(); window.scrollTo(0,0); }); });
+    view.querySelectorAll("[data-maint-machine]").forEach(function(el){ el.addEventListener("click",function(){ S.maintMachine=el.getAttribute("data-maint-machine"); render(); window.scrollTo(0,0); }); });
+    view.querySelectorAll("[data-bear-machine]").forEach(function(el){ el.addEventListener("click",function(){ S.bearMachine=el.getAttribute("data-bear-machine"); render(); window.scrollTo(0,0); }); });
+    view.querySelectorAll("[data-back]").forEach(function(el){ el.addEventListener("click",function(){ var t=el.getAttribute("data-back"); if(t==="prod")S.prodMachine=null; if(t==="maint")S.maintMachine=null; if(t==="bear")S.bearMachine=null; render(); }); });
   }
+  document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click",function(){ S.tab=t.getAttribute("data-tab"); render(); window.scrollTo(0,0); }); });
+  document.getElementById("refresh").addEventListener("click",loadAll);
 
-  /* ===== controls / header ===== */
-  function applyQuick(q){
-    ST.quick=q;
-    if(q==="all"){ ST.from="2020-01-01"; ST.to=todayISO(); }
-    else { ST.from=daysAgoISO(parseInt(q,10)-1); ST.to=todayISO(); }
-    document.getElementById("fromIn").value=ST.from; document.getElementById("toIn").value=ST.to;
-    syncQuick(); load();
-  }
-  function syncQuick(){ document.querySelectorAll("#quick button").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-q")===ST.quick); }); }
-
-  function init(){
-    document.querySelectorAll("#tabs button").forEach(function(b){ b.addEventListener("click",function(){ ST.tab=b.getAttribute("data-tab"); render(); }); });
-    document.getElementById("fromIn").addEventListener("change",function(e){ if(e.target.value){ ST.from=e.target.value; ST.quick=""; syncQuick(); load(); } });
-    document.getElementById("toIn").addEventListener("change",function(e){ if(e.target.value){ ST.to=e.target.value; ST.quick=""; syncQuick(); load(); } });
-    document.querySelectorAll("#quick button").forEach(function(b){ b.addEventListener("click",function(){ applyQuick(b.getAttribute("data-q")); }); });
-    document.getElementById("reloadBtn").addEventListener("click", load);
-    applyQuick("30"); // default: last 30 days
-  }
-  init();
+  loadAll();
 })();
 </script>
 </body>
