@@ -166,6 +166,28 @@
   }
   function runKwh(r){ if(num(r.kwh)!=null) return num(r.kwh); if(num(r.elec_end)!=null&&num(r.elec_start)!=null) return Math.max(0,num(r.elec_end)-num(r.elec_start)); return null; }
   function runDate(r){ return r.shift_date || (r.end?isoDay(r.ended_at):"") ; }
+  // Classify a moment into the plant's shift, in IST wall-clock, regardless of the viewer's timezone.
+  // Day = 08:30–20:30 (same date). Night = 20:30–08:30; a load before 08:30 belongs to the PREVIOUS day's night shift.
+  function shiftClassify(iso){
+    if(!iso) return null;
+    var t=new Date(iso).getTime(); if(isNaN(t)) return null;
+    var ist=new Date(t + 330*60000);                       // + 5:30, then read via UTC getters = IST wall clock
+    var mins=ist.getUTCHours()*60+ist.getUTCMinutes();
+    var y=ist.getUTCFullYear(), mo=ist.getUTCMonth(), d=ist.getUTCDate();
+    function iso3(Y,Mo,D){ return Y+"-"+p2(Mo+1)+"-"+p2(D); }
+    if(mins>=510 && mins<1230) return { date:iso3(y,mo,d), shift:"Day" };     // 08:30–20:30
+    if(mins>=1230)             return { date:iso3(y,mo,d), shift:"Night" };    // 20:30–24:00
+    var pd=new Date(Date.UTC(y,mo,d)); pd.setUTCDate(pd.getUTCDate()-1);       // 00:00–08:30 → previous day's night
+    return { date:iso3(pd.getUTCFullYear(),pd.getUTCMonth(),pd.getUTCDate()), shift:"Night" };
+  }
+  // Effective shift for a run. Autoclaves are classified by LOADING time only (never unloading).
+  function runShift(r){
+    if(r.kind==="autoclave" && r.loaded_at){ var c=shiftClassify(r.loaded_at); if(c) return c; }
+    return { date:r.shift_date||"", shift:r.shift||"" };
+  }
+  function istParts(iso){ var t=new Date(iso).getTime(); if(isNaN(t)) return null; var d=new Date(t+330*60000); return {y:d.getUTCFullYear(),mo:d.getUTCMonth(),day:d.getUTCDate(),h:d.getUTCHours(),mi:d.getUTCMinutes()}; }
+  function istClock(iso){ var p=istParts(iso); return p?(p2(p.h)+":"+p2(p.mi)):"—"; }
+  function istDay(iso){ var p=istParts(iso); return p?(p.y+"-"+p2(p.mo+1)+"-"+p2(p.day)):""; }
 
   /* data */
   function get(table){
@@ -205,9 +227,9 @@
   }
 
   /* ===================== Production ===================== */
-  function dayRuns(date,shift){ return S.runs.filter(function(r){ return r.shift_date===date && (shift==="all"||(r.shift||"")===shift); }); }
+  function dayRuns(date,shift){ return S.runs.filter(function(r){ var c=runShift(r); return c.date===date && (shift==="all"||(c.shift||"")===shift); }); }
   function prodList(){
-    var dates={}; S.runs.forEach(function(r){ if(r.shift_date) dates[r.shift_date]=1; });
+    var dates={}; S.runs.forEach(function(r){ var c=runShift(r); if(c.date) dates[c.date]=1; });
     var dlist=Object.keys(dates).sort().reverse();
     var dOpts=dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(S.prodDate===d?" selected":"")+'>'+esc(fmtDay(d))+'</option>'; }).join("");
     var rs=dayRuns(S.prodDate,S.prodShift);
@@ -266,9 +288,10 @@
   }
   function runCard(r){
     var m=M(r.machine_id), isAuto=(r.kind==="autoclave");
+    var sc=runShift(r);
     var h=runHours(r), k=runKwh(r), w=num(r.weight_kg), wk=num(r.workers);
-    var ttl = isAuto ? ('Batch '+esc(r.batch_no||"—")) : (r.batch_no?('Batch '+esc(r.batch_no)):(m.kind==="grind"?(r.shift||""):'Run'));
-    var when = (r.shift?esc(r.shift):'')+(r.supervisor?' · '+esc(r.supervisor):'');
+    var ttl = isAuto ? ('Batch '+esc(r.batch_no||"—")) : (r.batch_no?('Batch '+esc(r.batch_no)):(m.kind==="grind"?(sc.shift||""):'Run'));
+    var when = (sc.shift?esc(sc.shift):'')+(r.supervisor?' · '+esc(r.supervisor):'');
     var P=[];
     P.push('<span class="chiplet">Run <b>'+fmtH(h)+'</b></span>');
     if(k!=null) P.push('<span class="chiplet">Energy <b>'+rnd(k,1)+'</b> kWh</span>');
@@ -278,8 +301,9 @@
     if(w!=null) P.push('<span class="chiplet">Output <b>'+w+'</b> kg</span>');
     if(w!=null&&k!=null&&w>0) P.push('<span class="chiplet">'+rnd(k/w,3)+' kWh/kg</span>');
     if(r.quality) P.unshift('<span class="qchip">'+esc(r.quality)+'</span>');
-    var loadLine = isAuto ? '<div class="when">⤓ load '+fmtClockISO(r.loaded_at)+' · ⤒ unload '+fmtClockISO(r.unloaded_at)+
-        ((r.loaded_at&&r.unloaded_at&&isoDay(r.loaded_at)!==isoDay(r.unloaded_at))?' <span class="muted">('+esc(fmtDay(isoDay(r.unloaded_at)))+')</span>':'')+'</div>' : '';
+    var loadLine = isAuto ? '<div class="when">⤓ load '+istClock(r.loaded_at)+' <span class="muted">'+esc(fmtDay(istDay(r.loaded_at)))+'</span> · ⤒ unload '+istClock(r.unloaded_at)+
+        ((r.loaded_at&&r.unloaded_at&&istDay(r.loaded_at)!==istDay(r.unloaded_at))?' <span class="muted">'+esc(fmtDay(istDay(r.unloaded_at)))+'</span>':'')+
+        ' · <span style="color:var(--steel)">counts in '+esc(sc.shift)+' shift of '+esc(fmtDay(sc.date))+' (by loading)</span></div>' : '';
     return '<div class="runcard"><div class="top"><div class="ttl">'+ttl+'</div><div class="when">'+when+'</div></div>'+
       loadLine+'<div class="params">'+P.join("")+'</div></div>';
   }
