@@ -139,7 +139,7 @@
   function isGrind(id){ return M(id).kind==="grind"; }
 
   var S={ tab:"history", loading:true, err:"", runs:[], maint:[], bears:[], notes:[],
-          histDate:"", histMachine:"",
+          histDate:"", histMachine:"", histShift:"all",
           effDate:"", effShift:"Day",
           maintMonth:"", maintMachine:null, bearMachine:null };
 
@@ -233,11 +233,13 @@
     var dOpts='<option value="">All days</option>'+dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(S.histDate===d?" selected":"")+'>'+esc(fmtDay(d))+'</option>'; }).join("");
     var mPresent={}; S.runs.forEach(function(r){ if(r.machine_id) mPresent[r.machine_id]=1; });
     var mOpts='<option value="">All machines</option>'+MACHINES.filter(function(m){ return mPresent[m.id]; }).map(function(m){ return '<option value="'+esc(m.id)+'"'+(S.histMachine===m.id?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
-    var fr=S.runs.filter(function(r){ var c=runShift(r); return (!S.histDate||c.date===S.histDate) && (!S.histMachine||r.machine_id===S.histMachine); });
+    var fr=S.runs.filter(function(r){ var c=runShift(r); return (!S.histDate||c.date===S.histDate) && (!S.histMachine||r.machine_id===S.histMachine) && (S.histShift==="all"||(c.shift||"")===S.histShift); });
     fr.sort(function(a,b){ return (+new Date(b.started_at||b.loaded_at||0)) - (+new Date(a.started_at||a.loaded_at||0)); });
     var totK=0,totW=0; fr.forEach(function(r){ var k=runKwh(r); if(k!=null)totK+=k; var w=num(r.weight_kg); if(w!=null)totW+=w; });
+    var chips=["all","Day","Night"].map(function(s){ return '<div class="chip'+(S.histShift===s?" on":"")+'" data-histshift="'+s+'">'+(s==="all"?"Both shifts":s+" shift")+'</div>'; }).join("");
     var html='<div class="panel"><div class="bar"><div class="f"><label>Day</label><select id="hist-date">'+dOpts+'</select></div>'+
       '<div class="f"><label>Machine</label><select id="hist-machine">'+mOpts+'</select></div></div>'+
+      '<div class="chips" style="margin-top:10px">'+chips+'</div>'+
       '<div class="kpis"><div class="kpi"><b>'+fr.length+'</b><span>runs</span></div><div class="kpi"><b>'+Math.round(totK)+'</b><span>kWh</span></div><div class="kpi"><b>'+Math.round(totW)+'</b><span>kg out</span></div></div></div>';
     if(!fr.length) return html+'<div class="empty">No runs match these filters.</div>';
     var rows=fr.map(function(r){
@@ -611,6 +613,7 @@
   function wire(){
     var hd=document.getElementById("hist-date"); if(hd) hd.onchange=function(){ S.histDate=hd.value; render(); };
     var hm=document.getElementById("hist-machine"); if(hm) hm.onchange=function(){ S.histMachine=hm.value; render(); };
+    view.querySelectorAll("[data-histshift]").forEach(function(el){ el.onclick=function(){ S.histShift=el.getAttribute("data-histshift"); render(); }; });
     var mm=document.getElementById("maint-month"); if(mm) mm.onchange=function(){ S.maintMonth=mm.value; S.maintMachine=null; render(); };
     var em=document.getElementById("eff-date"); if(em) em.onchange=function(){ S.effDate=em.value; render(); };
     view.querySelectorAll("[data-effshift]").forEach(function(el){ el.onclick=function(){ S.effShift=el.getAttribute("data-effshift"); render(); }; });
