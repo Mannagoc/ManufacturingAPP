@@ -251,9 +251,10 @@
       var eCell=(k!=null?rnd(k,1)+' kWh':'—')+((!isAuto&&(r.elec_start!=null||r.elec_end!=null))?'<br><span class="muted" style="font-size:9px">'+(r.elec_start!=null?esc(r.elec_start):'—')+'→'+(r.elec_end!=null?esc(r.elec_end):'—')+(r.machine_id==="GRD_O"?' ×3':'')+'</span>':'')+(num(r.firewood_kg)!=null?'<br><span class="muted" style="font-size:9px">'+num(r.firewood_kg)+' fw</span>':'');
       var rCell=fmtH(h)+((!isAuto&&(r.hour_start!=null||r.hour_end!=null))?'<br><span class="muted" style="font-size:9px">hr '+(r.hour_start!=null?esc(r.hour_start):'—')+'→'+(r.hour_end!=null?esc(r.hour_end):'—')+'</span>':'');
       var wCell=(w!=null?esc(w)+' kg':'—');
-      return '<tr><td>'+when+'</td><td>'+mCell+'</td><td>'+bq+'</td><td class="tnum">'+rCell+'</td><td class="tnum">'+eCell+'</td><td class="tnum">'+(num(r.workers)!=null?num(r.workers):'—')+'</td><td class="tnum">'+wCell+'</td></tr>';
+      return '<tr data-run="'+esc(r.id)+'" style="cursor:pointer"><td>'+when+'</td><td>'+mCell+'</td><td>'+bq+'</td><td class="tnum">'+rCell+'</td><td class="tnum">'+eCell+'</td><td class="tnum">'+(num(r.workers)!=null?num(r.workers):'—')+'</td><td class="tnum">'+wCell+'</td></tr>';
     }).join("");
-    html+='<div class="panel" style="padding:0;overflow:hidden;margin-top:12px"><div class="scroll-x"><table class="tt" style="min-width:560px"><thead><tr><th>When</th><th>Machine</th><th>Batch / grade</th><th class="tnum">Run</th><th class="tnum">Energy</th><th class="tnum">Crew</th><th class="tnum">Out</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    html+='<div class="sub" style="margin:12px 2px 6px">Tap any row for the full run details.</div>'+
+      '<div class="panel" style="padding:0;overflow:hidden;margin-top:0"><div class="scroll-x"><table class="tt" style="min-width:560px"><thead><tr><th>When</th><th>Machine</th><th>Batch / grade</th><th class="tnum">Run</th><th class="tnum">Energy</th><th class="tnum">Crew</th><th class="tnum">Out</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
     return html;
   }
   function runCard(r){
@@ -366,6 +367,42 @@
     mdl.innerHTML='<div class="modal"><div class="sheet">'+html+
       '<div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="cm-close">Close</button></div></div></div>';
     document.getElementById("cm-close").onclick=function(){ mdl.innerHTML=""; };
+  }
+  function runById(id){ for(var i=0;i<S.runs.length;i++){ if(String(S.runs[i].id)===String(id)) return S.runs[i]; } return null; }
+  function roRow(k,v){ return '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)"><span class="muted" style="font-size:13px">'+esc(k)+'</span><span style="font-size:13px;text-align:right;font-weight:500">'+v+'</span></div>'; }
+  function openRunModal(r){
+    if(!r) return;
+    var m=M(r.machine_id), isAuto=(r.kind==="autoclave"), c=runShift(r);
+    var h=runHours(r), k=runKwh(r), w=num(r.weight_kg);
+    var rows='';
+    rows+=roRow("Machine", esc(m.name)+' <span class="muted">('+esc(m.short)+')</span>');
+    rows+=roRow("Type", esc(r.kind||m.kind)+(r.line?' · '+esc(r.line)+' line':''));
+    if(r.batch_no) rows+=roRow("Batch", '<span class="batchref">'+esc(r.batch_no)+'</span>');
+    if(r.quality) rows+=roRow("Grade", '<span class="qchip">'+esc(r.quality)+'</span>');
+    if(r.formulation) rows+=roRow("Formulation", esc(r.formulation));
+    if(r.capacity!=null&&r.capacity!=="") rows+=roRow("Charge", esc(r.capacity)+' kg');
+    rows+=roRow("Shift", esc(c.shift||r.shift||'—')+' shift · '+esc(fmtDay(c.date||r.shift_date)));
+    if(r.supervisor) rows+=roRow("Supervisor", esc(r.supervisor));
+    if(isAuto){
+      rows+=roRow("Loaded", istClock(r.loaded_at)+' · '+esc(fmtDay(istDay(r.loaded_at))));
+      rows+=roRow("Unloaded", istClock(r.unloaded_at)+' · '+esc(fmtDay(istDay(r.unloaded_at))));
+      if(r.paired!=null&&r.paired!=="") rows+=roRow("Crew basis", r.paired?'shared with another autoclave':'this autoclave alone');
+    }
+    rows+=roRow("Run time", fmtH(h)+(r.runtime_min!=null&&r.runtime_min!==""?' <span class="muted">· '+r.runtime_min+' min</span>':''));
+    if(!isAuto){
+      if(r.elec_start!=null||r.elec_end!=null) rows+=roRow("Electricity meter", (r.elec_start!=null?esc(r.elec_start):'—')+' → '+(r.elec_end!=null?esc(r.elec_end):'—')+(r.machine_id==="GRD_O"?' <span class="muted">(TOD ×3)</span>':''));
+      if(r.hour_start!=null||r.hour_end!=null) rows+=roRow("Hour meter", (r.hour_start!=null?esc(r.hour_start):'—')+' → '+(r.hour_end!=null?esc(r.hour_end):'—'));
+    }
+    if(k!=null) rows+=roRow("Energy", rnd(k,1)+' kWh'+(h&&h>0?' <span class="muted">· '+rnd(k/h,1)+' kWh/h</span>':''));
+    if(num(r.firewood_kg)!=null) rows+=roRow("Firewood", num(r.firewood_kg)+' kg');
+    if(num(r.workers)!=null) rows+=roRow("Crew", num(r.workers));
+    if(w!=null) rows+=roRow("Output", w+' kg'+(k!=null&&w>0?' <span class="muted">· '+rnd(k/w,3)+' kWh/kg</span>':''));
+    var srcs=[r.src1,r.src2,r.src3,r.src4].filter(function(x){ return x!=null&&x!==""; });
+    if(srcs.length>1) rows+=roRow("Mixed from", esc(srcs.join(" + ")));
+    if(r.passes!=null && r.passes>1) rows+=roRow("Passes merged", r.passes);
+    var head='<h1 style="font-size:17px;margin:0 0 2px">'+esc(m.name)+(r.batch_no?' · Batch '+esc(r.batch_no):'')+'</h1>'+
+      '<div class="sub">'+esc(c.shift||r.shift||'')+' shift · '+esc(fmtDay(c.date||r.shift_date))+(r.quality?' · '+esc(r.quality):'')+'</div>';
+    openCalcModal(head+'<div style="margin-top:12px">'+rows+'</div>');
   }
   function noteFor(line,day,shift,metric){
     return S.notes.filter(function(n){ return n.line===line && n.shift_date===day && (n.shift||"")===(shift||"") && (!metric || n.metric===metric); })
@@ -622,6 +659,7 @@
     view.querySelectorAll("[data-back]").forEach(function(el){ el.onclick=function(){ var t=el.getAttribute("data-back"); if(t==="maint")S.maintMachine=null; if(t==="bear")S.bearMachine=null; render(); }; });
     view.querySelectorAll("[data-effnote]").forEach(function(el){ el.onclick=function(){ var p=el.getAttribute("data-effnote").split("|"); openReasonModal(p[0],p[1],p[2],p[3]); }; });
     view.querySelectorAll("[data-calc]").forEach(function(el){ el.onclick=function(){ openCalcModal(CALCS[el.getAttribute("data-calc")]||""); }; });
+    view.querySelectorAll("[data-run]").forEach(function(el){ el.onclick=function(){ openRunModal(runById(el.getAttribute("data-run"))); }; });
   }
   document.querySelectorAll(".tab").forEach(function(t){ t.onclick=function(){ S.tab=t.getAttribute("data-tab"); render(); window.scrollTo(0,0); }; });
   document.getElementById("refresh").onclick=loadAll;
