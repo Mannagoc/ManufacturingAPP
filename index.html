@@ -97,7 +97,7 @@
       <button class="refresh" id="refresh">↻ Refresh</button>
     </div>
     <div class="tabs">
-      <div class="tab on" data-tab="prod">Production</div>
+      <div class="tab on" data-tab="history">History</div>
       <div class="tab" data-tab="eff">Efficiency</div>
       <div class="tab" data-tab="maint">Maintenance</div>
       <div class="tab" data-tab="bear">Bearings</div>
@@ -138,8 +138,8 @@
   function M(id){ for(var i=0;i<MACHINES.length;i++) if(MACHINES[i].id===id) return MACHINES[i]; return {id:id,name:id,short:id,kind:"",group:"Other"}; }
   function isGrind(id){ return M(id).kind==="grind"; }
 
-  var S={ tab:"prod", loading:true, err:"", runs:[], maint:[], bears:[], notes:[],
-          prodDate:"", prodShift:"all", prodMachine:null,
+  var S={ tab:"history", loading:true, err:"", runs:[], maint:[], bears:[], notes:[],
+          histDate:"", histMachine:"",
           effDate:"", effShift:"Day",
           maintMonth:"", maintMachine:null, bearMachine:null };
 
@@ -204,7 +204,6 @@
     Promise.all([get("runs"),get("maintenance"),get("bearing_logs"),get("efficiency_notes")]).then(function(res){
       S.runs=res[0]||[]; S.maint=res[1]||[]; S.bears=res[2]||[]; S.notes=res[3]||[];
       var ds=S.runs.map(function(r){ return r.shift_date; }).filter(Boolean).sort();
-      S.prodDate=S.prodDate||(ds.length?ds[ds.length-1]:isoDay(new Date().toISOString()));
       var months={}; S.runs.forEach(function(r){ var mo=monthOf(r.shift_date); if(mo) months[mo]=1; });
       S.maint.forEach(function(m){ var mo=monthOf(isoDay(m.down_start)); if(mo) months[mo]=1; });
       var mk=Object.keys(months).sort();
@@ -219,7 +218,7 @@
     document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-tab")===S.tab); });
     if(S.loading){ view.innerHTML='<div class="spin">Loading plant data…</div>'; return; }
     if(S.err){ view.innerHTML='<div class="err">Couldn\'t load data: '+esc(S.err)+'<br><span class="muted">Check internet, then tap Refresh.</span></div>'; return; }
-    if(S.tab==="prod") view.innerHTML=S.prodMachine?prodDetail():prodList();
+    if(S.tab==="history") view.innerHTML=historyView();
     else if(S.tab==="eff") view.innerHTML=effView();
     else if(S.tab==="maint") view.innerHTML=S.maintMachine?maintDetail():maintList();
     else view.innerHTML=S.bearMachine?bearDetail():bearList();
@@ -228,62 +227,31 @@
 
   /* ===================== Production ===================== */
   function dayRuns(date,shift){ return S.runs.filter(function(r){ var c=runShift(r); return c.date===date && (shift==="all"||(c.shift||"")===shift); }); }
-  function prodList(){
+  function historyView(){
     var dates={}; S.runs.forEach(function(r){ var c=runShift(r); if(c.date) dates[c.date]=1; });
     var dlist=Object.keys(dates).sort().reverse();
-    var dOpts=dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(S.prodDate===d?" selected":"")+'>'+esc(fmtDay(d))+'</option>'; }).join("");
-    var rs=dayRuns(S.prodDate,S.prodShift);
-    var totK=0,totW=0; rs.forEach(function(r){ var k=runKwh(r); if(k!=null) totK+=k; var w=num(r.weight_kg); if(w!=null) totW+=w; });
-    var chips=["all","Day","Night"].map(function(s){ return '<div class="chip'+(S.prodShift===s?" on":"")+'" data-prodshift="'+s+'">'+(s==="all"?"Both shifts":s+" shift")+'</div>'; }).join("");
-    var html='<div class="panel"><label>Production day</label><select id="prod-date">'+(dOpts||'<option>No data</option>')+'</select>'+
-      '<div class="chips" style="margin-top:10px">'+chips+'</div>'+
-      '<div class="kpis"><div class="kpi"><b>'+rs.length+'</b><span>runs</span></div>'+
-      '<div class="kpi"><b>'+Math.round(totK)+'</b><span>kWh</span></div>'+
-      '<div class="kpi"><b>'+Math.round(totW)+'</b><span>kg out</span></div></div></div>';
-    GROUPS.forEach(function(g){
-      var ms=MACHINES.filter(function(m){ return m.group===g; });
-      html+='<div class="grouphead">'+esc(g)+'</div>';
-      ms.forEach(function(m){
-        var mr=rs.filter(function(r){ return r.machine_id===m.id; });
-        var dtTxt="";
-        if(isGrind(m.id) && mr.length){ dtTxt=' · <span class="dt">'+fmtMinAsH(grindDowntime(mr).total)+' down</span>'; }
-        var b = mr.length ? '<span class="badge">'+mr.length+' run'+(mr.length>1?'s':'')+'</span>' : '<span class="badge none">—</span>';
-        html+='<div class="mrow" data-prod-machine="'+m.id+'"><div><div class="mn">'+esc(m.name)+'</div>'+
-          '<div class="mk">'+esc(m.short)+' · '+esc(m.kind)+dtTxt+'</div></div>'+
-          '<div class="row" style="gap:8px">'+b+'<span class="chev">›</span></div></div>';
-      });
-    });
-    return html;
-  }
-  function grindDowntime(runs){
-    var byShift={Day:0,Night:0}, has={Day:false,Night:false};
-    runs.forEach(function(r){ var sh=(r.shift==="Night")?"Night":"Day"; var h=runHours(r); if(h!=null){ byShift[sh]+=h*60; has[sh]=true; } });
-    var out={Day:null,Night:null,total:0};
-    ["Day","Night"].forEach(function(sh){ if(has[sh]){ var dt=Math.max(0,SHIFT_MIN-byShift[sh]); out[sh]=dt; out.total+=dt; } });
-    return out;
-  }
-  function prodDetail(){
-    var m=M(S.prodMachine), rs=dayRuns(S.prodDate,S.prodShift).filter(function(r){ return r.machine_id===m.id; });
-    rs.sort(function(a,b){ return (a.started_at||a.loaded_at||"")<(b.started_at||b.loaded_at||"")?-1:1; });
-    var shiftLbl = S.prodShift==="all" ? "" : " · "+S.prodShift+" shift";
-    var html='<div class="back" data-back="prod">‹ Back to '+esc(fmtDay(S.prodDate))+esc(shiftLbl)+'</div>'+
-      '<div class="panel"><div class="row"><div><h1 style="font-size:18px">'+esc(m.name)+'</h1>'+
-      '<div class="sub">'+esc(fmtDay(S.prodDate))+esc(shiftLbl)+' · '+rs.length+' run'+(rs.length===1?'':'s')+'</div></div></div></div>';
-    if(isGrind(m.id)){
-      ["Day","Night"].forEach(function(sh){
-        if(S.prodShift!=="all" && S.prodShift!==sh) return;
-        var sr=rs.filter(function(r){ return (r.shift==="Night"?"Night":"Day")===sh; });
-        if(!sr.length) return;
-        var runMin=0; sr.forEach(function(r){ var h=runHours(r); if(h!=null) runMin+=h*60; });
-        var dt=Math.max(0,SHIFT_MIN-runMin);
-        html+='<div class="shiftbox"><div class="sh">'+sh+' shift <span class="muted" style="font-weight:400">· 08:30–'+(sh==="Day"?"20:30":"08:30")+'</span></div>'+
-          '<div class="params"><span class="chiplet">Ran <b>'+fmtMinAsH(runMin)+'</b></span>'+
-          '<span class="chiplet">Downtime <b class="dt">'+fmtMinAsH(dt)+'</b></span>'+
-          '<span class="chiplet">of 12 h shift</span></div></div>';
-      });
-    }
-    if(!rs.length){ html+='<div class="empty">No runs for this machine.</div>'; return html; }
-    rs.forEach(function(r){ html+=runCard(r); });
+    var dOpts='<option value="">All days</option>'+dlist.map(function(d){ return '<option value="'+esc(d)+'"'+(S.histDate===d?" selected":"")+'>'+esc(fmtDay(d))+'</option>'; }).join("");
+    var mPresent={}; S.runs.forEach(function(r){ if(r.machine_id) mPresent[r.machine_id]=1; });
+    var mOpts='<option value="">All machines</option>'+MACHINES.filter(function(m){ return mPresent[m.id]; }).map(function(m){ return '<option value="'+esc(m.id)+'"'+(S.histMachine===m.id?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
+    var fr=S.runs.filter(function(r){ var c=runShift(r); return (!S.histDate||c.date===S.histDate) && (!S.histMachine||r.machine_id===S.histMachine); });
+    fr.sort(function(a,b){ return (+new Date(b.started_at||b.loaded_at||0)) - (+new Date(a.started_at||a.loaded_at||0)); });
+    var totK=0,totW=0; fr.forEach(function(r){ var k=runKwh(r); if(k!=null)totK+=k; var w=num(r.weight_kg); if(w!=null)totW+=w; });
+    var html='<div class="panel"><div class="bar"><div class="f"><label>Day</label><select id="hist-date">'+dOpts+'</select></div>'+
+      '<div class="f"><label>Machine</label><select id="hist-machine">'+mOpts+'</select></div></div>'+
+      '<div class="kpis"><div class="kpi"><b>'+fr.length+'</b><span>runs</span></div><div class="kpi"><b>'+Math.round(totK)+'</b><span>kWh</span></div><div class="kpi"><b>'+Math.round(totW)+'</b><span>kg out</span></div></div></div>';
+    if(!fr.length) return html+'<div class="empty">No runs match these filters.</div>';
+    var rows=fr.map(function(r){
+      var c=runShift(r), m=M(r.machine_id), isAuto=(r.kind==="autoclave");
+      var h=runHours(r), k=runKwh(r), w=num(r.weight_kg);
+      var when='<b>'+esc(fmtDay(c.date))+'</b>'+(c.shift?'<br><span class="muted" style="font-size:10px">'+esc(c.shift)+' shift</span>':'')+(r.supervisor?'<br><span class="muted" style="font-size:10px">'+esc(r.supervisor)+'</span>':'');
+      var mCell='<b>'+esc(m.short)+'</b>'+(isAuto?'<br><span class="muted" style="font-size:9px">⤓'+istClock(r.loaded_at)+' ⤒'+istClock(r.unloaded_at)+(r.loaded_at&&r.unloaded_at&&istDay(r.loaded_at)!==istDay(r.unloaded_at)?'⁺¹':'')+'</span>':'');
+      var bq=(r.batch_no?'<span class="batchref" style="font-size:12px">'+esc(r.batch_no)+'</span>':'—')+(r.quality?' <span class="qchip">'+esc(r.quality)+'</span>':'')+(r.formulation?'<br><span class="muted" style="font-size:10px">'+esc(r.formulation)+'</span>':'');
+      var eCell=(k!=null?rnd(k,1)+' kWh':'—')+((!isAuto&&(r.elec_start!=null||r.elec_end!=null))?'<br><span class="muted" style="font-size:9px">'+(r.elec_start!=null?esc(r.elec_start):'—')+'→'+(r.elec_end!=null?esc(r.elec_end):'—')+(r.machine_id==="GRD_O"?' ×3':'')+'</span>':'')+(num(r.firewood_kg)!=null?'<br><span class="muted" style="font-size:9px">'+num(r.firewood_kg)+' fw</span>':'');
+      var rCell=fmtH(h)+((!isAuto&&(r.hour_start!=null||r.hour_end!=null))?'<br><span class="muted" style="font-size:9px">hr '+(r.hour_start!=null?esc(r.hour_start):'—')+'→'+(r.hour_end!=null?esc(r.hour_end):'—')+'</span>':'');
+      var wCell=(w!=null?esc(w)+' kg':'—');
+      return '<tr><td>'+when+'</td><td>'+mCell+'</td><td>'+bq+'</td><td class="tnum">'+rCell+'</td><td class="tnum">'+eCell+'</td><td class="tnum">'+(num(r.workers)!=null?num(r.workers):'—')+'</td><td class="tnum">'+wCell+'</td></tr>';
+    }).join("");
+    html+='<div class="panel" style="padding:0;overflow:hidden;margin-top:12px"><div class="scroll-x"><table class="tt" style="min-width:560px"><thead><tr><th>When</th><th>Machine</th><th>Batch / grade</th><th class="tnum">Run</th><th class="tnum">Energy</th><th class="tnum">Crew</th><th class="tnum">Out</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
     return html;
   }
   function runCard(r){
@@ -358,6 +326,7 @@
   }
 
   function effView(){
+    CALC_SEQ=0; CALCS={};
     var dates={}; S.runs.forEach(function(r){ if(r.shift_date) dates[r.shift_date]=1; });
     var dlist=Object.keys(dates).sort().reverse();
     if(S.effDate && dlist.indexOf(S.effDate)<0) S.effDate=dlist[0]||"";
@@ -376,9 +345,25 @@
     html+='<div class="grouphead">Grinding line · '+esc(fmtDay(S.effDate))+' · '+esc(S.effShift)+' shift</div>'+effGrind(S.effDate,S.effShift);
     return html;
   }
-  function metricRow(label, valTxt, baseTxt, warn){
-    return '<div class="metric"><span>'+esc(label)+(warn?'<span class="warnpill">below usual</span>':'')+'</span>'+
+  var CALC_SEQ=0, CALCS={};
+  function metricRow(label, valTxt, baseTxt, warn, calcHtml){
+    var attr="", hint="";
+    if(calcHtml){ var id="c"+(++CALC_SEQ); CALCS[id]=calcHtml; attr=' data-calc="'+id+'" style="cursor:pointer"'; hint=' <span class="muted" style="font-size:10px">ⓘ how?</span>'; }
+    return '<div class="metric"'+attr+'><span>'+esc(label)+hint+(warn?'<span class="warnpill">below usual</span>':'')+'</span>'+
       '<span style="text-align:right"><span class="mv'+(warn?'" style="color:var(--err)':'')+'">'+valTxt+'</span><div class="mb">'+baseTxt+'</div></span></div>';
+  }
+  function calcBlock(title, sub, lines, note){
+    return '<h1 style="font-size:16px;margin:0 0 2px">'+esc(title)+'</h1>'+
+      '<div class="sub">'+esc(sub)+'</div>'+
+      '<div style="margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.95;background:var(--panel2,#101820);border:1px solid var(--line);border-radius:10px;padding:11px 13px">'+
+      lines.map(function(l){ return '<div>'+l+'</div>'; }).join("")+'</div>'+
+      (note?'<div class="sub" style="margin-top:12px">'+note+'</div>':'');
+  }
+  function openCalcModal(html){
+    var mdl=document.getElementById("modal");
+    mdl.innerHTML='<div class="modal"><div class="sheet">'+html+
+      '<div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="cm-close">Close</button></div></div></div>';
+    document.getElementById("cm-close").onclick=function(){ mdl.innerHTML=""; };
   }
   function noteFor(line,day,shift,metric){
     return S.notes.filter(function(n){ return n.line===line && n.shift_date===day && (n.shift||"")===(shift||"") && (!metric || n.metric===metric); })
@@ -403,12 +388,32 @@
       var warnE=(u.kwhkg!=null && be!=null && u.kwhkg > be*TH_ENERGY);
       var flag=warnL||warnE;
       var metric="Refiner "+u.quality;
+      var pmhCalc = (u.pmh!=null) ? calcBlock("Production / man-hour", u.quality+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>Formula:</b> output ÷ (total crew × total hours)",
+         "output = <b>"+rnd(u.out,0)+"</b> kg &nbsp;<span style='opacity:.6'>(R4 weighed)</span>",
+         "crew = <b>"+u.workers+"</b> &nbsp;<span style='opacity:.6'>(summed over the refiner passes)</span>",
+         "hours = <b>"+rnd(u.hours,2)+"</b> h &nbsp;<span style='opacity:.6'>(summed over the refiner passes)</span>",
+         "= "+rnd(u.out,0)+" ÷ ("+u.workers+" × "+rnd(u.hours,2)+")",
+         "= "+rnd(u.out,0)+" ÷ "+rnd(u.workers*u.hours,2),
+         "= <b style='color:var(--elec)'>"+rnd(u.pmh,2)+"</b>"],
+        "Usual = median of this value across every "+esc(u.quality)+" shift so far = <b>"+(bp!=null?rnd(bp,2):"—")+"</b>. Flagged if below "+Math.round(TH_LABOUR*100)+"% of usual ("+(bp!=null?rnd(bp*TH_LABOUR,2):"—")+").") : null;
+      var eCalc = (u.kwhkg!=null) ? calcBlock("Electricity (kWh / kg)", u.quality+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>Formula:</b> total energy ÷ output",
+         "energy = <b>"+rnd(u.kwh,1)+"</b> kWh &nbsp;<span style='opacity:.6'>(all refiner passes)</span>",
+         "output = <b>"+rnd(u.out,0)+"</b> kg",
+         "= "+rnd(u.kwh,1)+" ÷ "+rnd(u.out,0),
+         "= <b style='color:var(--elec)'>"+rnd(u.kwhkg,3)+"</b> kWh/kg"],
+        "Usual = median across every "+esc(u.quality)+" shift = <b>"+(be!=null?rnd(be,3):"—")+"</b>. Flagged if above "+Math.round(TH_ENERGY*100)+"% of usual ("+(be!=null?rnd(be*TH_ENERGY,3):"—")+").") : null;
+      var oCalc = calcBlock("Output", u.quality+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>What it is:</b> total weighed output of this grade in this shift.",
+         "= sum of R4 weights = <b style='color:var(--elec)'>"+rnd(u.out,0)+"</b> kg",
+         "produced with "+u.workers+" crew over "+rnd(u.hours,2)+" h"], "");
       out+='<div class="effcard'+(flag?' flag':'')+'">'+
         '<div class="row"><div><span class="qchip">'+esc(u.quality)+'</span></div>'+
           '<div class="muted" style="font-size:11px">'+(u.batchList.length?'Batch '+esc(u.batchList.join(", ")):'')+'</div></div>'+
-        metricRow("Production / man-hour", (u.pmh!=null?rnd(u.pmh,2):'— (no output)'), "usual "+(bp!=null?rnd(bp,2):'—'), warnL)+
-        metricRow("Electricity (kWh/kg)", (u.kwhkg!=null?rnd(u.kwhkg,3):'—'), "usual "+(be!=null?rnd(be,3):'—'), warnE)+
-        metricRow("Output (maximise)", rnd(u.out,0)+' kg', "labour: "+u.workers+' crew · '+rnd(u.hours,1)+' h', false)+
+        metricRow("Production / man-hour", (u.pmh!=null?rnd(u.pmh,2):'— (no output)'), "usual "+(bp!=null?rnd(bp,2):'—'), warnL, pmhCalc)+
+        metricRow("Electricity (kWh/kg)", (u.kwhkg!=null?rnd(u.kwhkg,3):'—'), "usual "+(be!=null?rnd(be,3):'—'), warnE, eCalc)+
+        metricRow("Output (maximise)", rnd(u.out,0)+' kg', "labour: "+u.workers+' crew · '+rnd(u.hours,1)+' h', false, oCalc)+
         reasonsBlock("refiner",day,shift,metric)+
         '<button class="btn ghost block" style="margin-top:10px" data-effnote="refiner|'+esc(day)+'|'+esc(shift)+'|'+esc(metric)+'">'+(flag?'⚠ Record reason for the dip':'+ Add a note')+'</button>'+
       '</div>';
@@ -421,9 +426,16 @@
       yShift.forEach(function(y){
         var warnY=(y.pct!=null && baseY!=null && y.pct < baseY*TH_YIELD);
         var metric="Yield Batch "+y.batch;
+        var yCalc=(y.pct!=null)?calcBlock("Yield", "Batch "+y.batch,
+          ["<b>Formula:</b> output ÷ autoclave charge × 100",
+           "output = <b>"+rnd(y.out,0)+"</b> kg &nbsp;<span style='opacity:.6'>(all grades weighed)</span>",
+           "charge = <b>"+y.charge+"</b> kg",
+           "= "+rnd(y.out,0)+" ÷ "+y.charge+" × 100",
+           "= <b style='color:var(--elec)'>"+rnd(y.pct,1)+"</b> %"],
+          "Usual = median yield across all batches = <b>"+(baseY!=null?rnd(baseY,1):"—")+"%</b>. Flagged if below "+Math.round(TH_YIELD*100)+"% of usual."):null;
         out+='<div class="effcard'+(warnY?' flag':'')+'">'+
           '<div class="row"><div><b>Batch '+esc(y.batch)+'</b></div><div class="muted" style="font-size:11px">charge '+(y.charge||'—')+' kg</div></div>'+
-          metricRow("Yield", (y.pct!=null?rnd(y.pct,1)+'%':'—'), "usual "+(baseY!=null?rnd(baseY,1)+'%':'—')+' · out '+rnd(y.out,0)+' kg', warnY)+
+          metricRow("Yield", (y.pct!=null?rnd(y.pct,1)+'%':'—'), "usual "+(baseY!=null?rnd(baseY,1)+'%':'—')+' · out '+rnd(y.out,0)+' kg', warnY, yCalc)+
           reasonsBlock("refiner",day,shift,metric)+
           '<button class="btn ghost block" style="margin-top:10px" data-effnote="refiner|'+esc(day)+'|'+esc(shift)+'|'+esc(metric)+'">'+(warnY?'⚠ Record reason for the dip':'+ Add a note')+'</button>'+
         '</div>';
@@ -445,13 +457,31 @@
       var warnE=(u.kwhkg!=null&&be!=null&&u.kwhkg>be*TH_ENERGY);
       var warnU=(u.util!=null&&u.util<TH_UTIL);
       var flag=warnL||warnE||warnU;
-      var metric=M(u.machine_id).name;
+      var metric=M(u.machine_id).name, nm=M(u.machine_id).name;
+      var pmhCalc=(u.pmh!=null)?calcBlock("Production / man-hour", nm+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>Formula:</b> output ÷ (crew × hours)",
+         "output = <b>"+rnd(u.out,0)+"</b> kg","crew = <b>"+u.workers+"</b>","hours = <b>"+rnd(u.hours,2)+"</b> h",
+         "= "+rnd(u.out,0)+" ÷ ("+u.workers+" × "+rnd(u.hours,2)+")",
+         "= <b style='color:var(--elec)'>"+rnd(u.pmh,1)+"</b>"],
+        "Usual for "+esc(nm)+" = <b>"+(bp!=null?rnd(bp,1):"—")+"</b> (median). Flagged below "+Math.round(TH_LABOUR*100)+"% of usual."):null;
+      var eCalc=(u.kwhkg!=null)?calcBlock("Electricity (kWh / kg)", nm+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>Formula:</b> energy ÷ output","energy = <b>"+rnd(u.kwh,1)+"</b> kWh"+(u.machine_id==="GRD_O"?" &nbsp;<span style='opacity:.6'>(TOD meter × 3)</span>":""),"output = <b>"+rnd(u.out,0)+"</b> kg",
+         "= "+rnd(u.kwh,1)+" ÷ "+rnd(u.out,0)+" = <b style='color:var(--elec)'>"+rnd(u.kwhkg,3)+"</b> kWh/kg"],
+        "Usual for "+esc(nm)+" = <b>"+(be!=null?rnd(be,3):"—")+"</b>. Flagged above "+Math.round(TH_ENERGY*100)+"% of usual."):null;
+      var uCalc=(u.util!=null)?calcBlock("Time · utilisation", nm+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>Formula:</b> run hours ÷ 12 h shift","ran = <b>"+rnd(u.hours,2)+"</b> h",
+         "= "+rnd(u.hours,2)+" ÷ 12 = <b style='color:var(--elec)'>"+rnd(u.util*100,0)+"</b>%",
+         "downtime = 12 − "+rnd(u.hours,2)+" = <b>"+fmtMinAsH(Math.max(0,720-u.hours*60))+"</b>"],
+        "Flagged below "+Math.round(TH_UTIL*100)+"% utilisation (more than "+Math.round((1-TH_UTIL)*100)+"% downtime)."):null;
+      var oCalc=calcBlock("Output", nm+" · "+fmtDay(day)+" · "+shift+" shift",
+        ["<b>What it is:</b> total crumb weighed from this grinder this shift.",
+         "= <b style='color:var(--elec)'>"+Math.round(u.out)+"</b> kg over "+rnd(u.hours,2)+" h with "+u.workers+" crew"],"");
       out+='<div class="effcard'+(flag?' flag':'')+'">'+
-        '<div class="row"><div><b>'+esc(M(u.machine_id).name)+'</b></div></div>'+
-        metricRow("Production / man-hour", (u.pmh!=null?rnd(u.pmh,1):'—'), "usual "+(bp!=null?rnd(bp,1):'—'), warnL)+
-        metricRow("Electricity (kWh/kg)", (u.kwhkg!=null?rnd(u.kwhkg,3):'—'), "usual "+(be!=null?rnd(be,3):'—'), warnE)+
-        metricRow("Time · utilisation", (u.util!=null?rnd(u.util*100,0)+'%':'—'), "of 12 h · downtime "+(u.util!=null?fmtMinAsH(Math.max(0,720-u.hours*60)):'—'), warnU)+
-        metricRow("Output (maximise)", Math.round(u.out)+' kg', "labour: "+u.workers+' crew · '+rnd(u.hours,1)+' h', false)+
+        '<div class="row"><div><b>'+esc(nm)+'</b></div></div>'+
+        metricRow("Production / man-hour", (u.pmh!=null?rnd(u.pmh,1):'—'), "usual "+(bp!=null?rnd(bp,1):'—'), warnL, pmhCalc)+
+        metricRow("Electricity (kWh/kg)", (u.kwhkg!=null?rnd(u.kwhkg,3):'—'), "usual "+(be!=null?rnd(be,3):'—'), warnE, eCalc)+
+        metricRow("Time · utilisation", (u.util!=null?rnd(u.util*100,0)+'%':'—'), "of 12 h · downtime "+(u.util!=null?fmtMinAsH(Math.max(0,720-u.hours*60)):'—'), warnU, uCalc)+
+        metricRow("Output (maximise)", Math.round(u.out)+' kg', "labour: "+u.workers+' crew · '+rnd(u.hours,1)+' h', false, oCalc)+
         reasonsBlock("grind",day,shift,metric)+
         '<button class="btn ghost block" style="margin-top:10px" data-effnote="grind|'+esc(day)+'|'+esc(shift)+'|'+esc(metric)+'">'+(flag?'⚠ Record reason for the dip':'+ Add a note')+'</button>'+
       '</div>';
@@ -579,16 +609,16 @@
 
   /* wiring */
   function wire(){
-    var pd=document.getElementById("prod-date"); if(pd) pd.onchange=function(){ S.prodDate=pd.value; S.prodMachine=null; render(); };
-    view.querySelectorAll("[data-prodshift]").forEach(function(el){ el.onclick=function(){ S.prodShift=el.getAttribute("data-prodshift"); render(); }; });
+    var hd=document.getElementById("hist-date"); if(hd) hd.onchange=function(){ S.histDate=hd.value; render(); };
+    var hm=document.getElementById("hist-machine"); if(hm) hm.onchange=function(){ S.histMachine=hm.value; render(); };
     var mm=document.getElementById("maint-month"); if(mm) mm.onchange=function(){ S.maintMonth=mm.value; S.maintMachine=null; render(); };
     var em=document.getElementById("eff-date"); if(em) em.onchange=function(){ S.effDate=em.value; render(); };
     view.querySelectorAll("[data-effshift]").forEach(function(el){ el.onclick=function(){ S.effShift=el.getAttribute("data-effshift"); render(); }; });
-    view.querySelectorAll("[data-prod-machine]").forEach(function(el){ el.onclick=function(){ S.prodMachine=el.getAttribute("data-prod-machine"); render(); window.scrollTo(0,0); }; });
     view.querySelectorAll("[data-maint-machine]").forEach(function(el){ el.onclick=function(){ S.maintMachine=el.getAttribute("data-maint-machine"); render(); window.scrollTo(0,0); }; });
     view.querySelectorAll("[data-bear-machine]").forEach(function(el){ el.onclick=function(){ S.bearMachine=el.getAttribute("data-bear-machine"); render(); window.scrollTo(0,0); }; });
-    view.querySelectorAll("[data-back]").forEach(function(el){ el.onclick=function(){ var t=el.getAttribute("data-back"); if(t==="prod")S.prodMachine=null; if(t==="maint")S.maintMachine=null; if(t==="bear")S.bearMachine=null; render(); }; });
+    view.querySelectorAll("[data-back]").forEach(function(el){ el.onclick=function(){ var t=el.getAttribute("data-back"); if(t==="maint")S.maintMachine=null; if(t==="bear")S.bearMachine=null; render(); }; });
     view.querySelectorAll("[data-effnote]").forEach(function(el){ el.onclick=function(){ var p=el.getAttribute("data-effnote").split("|"); openReasonModal(p[0],p[1],p[2],p[3]); }; });
+    view.querySelectorAll("[data-calc]").forEach(function(el){ el.onclick=function(){ openCalcModal(CALCS[el.getAttribute("data-calc")]||""); }; });
   }
   document.querySelectorAll(".tab").forEach(function(t){ t.onclick=function(){ S.tab=t.getAttribute("data-tab"); render(); window.scrollTo(0,0); }; });
   document.getElementById("refresh").onclick=loadAll;
