@@ -99,6 +99,8 @@
     <div class="tabs">
       <div class="tab on" data-tab="history">History</div>
       <div class="tab" data-tab="eff">Efficiency</div>
+      <div class="tab" data-tab="rates">Rates</div>
+      <div class="tab" data-tab="cost">Costing</div>
       <div class="tab" data-tab="maint">Maintenance</div>
       <div class="tab" data-tab="bear">Bearings</div>
     </div>
@@ -140,6 +142,7 @@
 
   var S={ tab:"history", loading:true, err:"", runs:[], maint:[], bears:[], notes:[],
           histDate:"", histMachine:"", histShift:"all",
+          rates:{}, costPwOk:false, costBatch:"",
           effDate:"", effShift:"Day",
           maintMonth:"", maintMachine:null, bearMachine:null };
 
@@ -199,10 +202,17 @@
       headers:{ apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, "Content-Type":"application/json", Prefer:"return=representation" },
       body:JSON.stringify(row) }).then(function(r){ if(!r.ok) throw new Error("save "+r.status); return r.json(); });
   }
+  function saveRates(data){
+    return fetch(SB_URL+"/rest/v1/cost_rates?id=eq.current",{ method:"PATCH",
+      headers:{ apikey:SB_KEY, Authorization:"Bearer "+SB_KEY, "Content-Type":"application/json", Prefer:"return=minimal" },
+      body:JSON.stringify({ data:data, updated_at:new Date().toISOString() }) })
+      .then(function(r){ if(!r.ok) throw new Error("save "+r.status); });
+  }
   function loadAll(){
     S.loading=true; S.err=""; render();
-    Promise.all([get("runs"),get("maintenance"),get("bearing_logs"),get("efficiency_notes")]).then(function(res){
+    Promise.all([get("runs"),get("maintenance"),get("bearing_logs"),get("efficiency_notes"),get("cost_rates")]).then(function(res){
       S.runs=res[0]||[]; S.maint=res[1]||[]; S.bears=res[2]||[]; S.notes=res[3]||[];
+      S.rates=((res[4]||[])[0]||{}).data||{};
       var ds=S.runs.map(function(r){ return r.shift_date; }).filter(Boolean).sort();
       var months={}; S.runs.forEach(function(r){ var mo=monthOf(r.shift_date); if(mo) months[mo]=1; });
       S.maint.forEach(function(m){ var mo=monthOf(isoDay(m.down_start)); if(mo) months[mo]=1; });
@@ -220,6 +230,8 @@
     if(S.err){ view.innerHTML='<div class="err">Couldn\'t load data: '+esc(S.err)+'<br><span class="muted">Check internet, then tap Refresh.</span></div>'; return; }
     if(S.tab==="history") view.innerHTML=historyView();
     else if(S.tab==="eff") view.innerHTML=effView();
+    else if(S.tab==="rates") view.innerHTML=ratesView();
+    else if(S.tab==="cost") view.innerHTML=costView();
     else if(S.tab==="maint") view.innerHTML=S.maintMachine?maintDetail():maintList();
     else view.innerHTML=S.bearMachine?bearDetail():bearList();
     wire();
@@ -248,8 +260,9 @@
       var when='<b>'+esc(fmtDay(c.date))+'</b>'+(c.shift?'<br><span class="muted" style="font-size:10px">'+esc(c.shift)+' shift</span>':'')+(r.supervisor?'<br><span class="muted" style="font-size:10px">'+esc(r.supervisor)+'</span>':'');
       var mCell='<b>'+esc(m.short)+'</b>'+(isAuto?'<br><span class="muted" style="font-size:9px">⤓'+istClock(r.loaded_at)+' ⤒'+istClock(r.unloaded_at)+(r.loaded_at&&r.unloaded_at&&istDay(r.loaded_at)!==istDay(r.unloaded_at)?'⁺¹':'')+'</span>':'');
       var bq=(r.batch_no?'<span class="batchref" style="font-size:12px">'+esc(r.batch_no)+'</span>':'—')+(r.quality?' <span class="qchip">'+esc(r.quality)+'</span>':'')+(r.formulation?'<br><span class="muted" style="font-size:10px">'+esc(r.formulation)+'</span>':'');
-      var eCell=(k!=null?rnd(k,1)+' kWh':'—')+((!isAuto&&(r.elec_start!=null||r.elec_end!=null))?'<br><span class="muted" style="font-size:9px">'+(r.elec_start!=null?esc(r.elec_start):'—')+'→'+(r.elec_end!=null?esc(r.elec_end):'—')+(r.machine_id==="GRD_O"?' ×3':'')+'</span>':'')+(num(r.firewood_kg)!=null?'<br><span class="muted" style="font-size:9px">'+num(r.firewood_kg)+' fw</span>':'');
-      var rCell=fmtH(h)+((!isAuto&&(r.hour_start!=null||r.hour_end!=null))?'<br><span class="muted" style="font-size:9px">hr '+(r.hour_start!=null?esc(r.hour_start):'—')+'→'+(r.hour_end!=null?esc(r.hour_end):'—')+'</span>':'');
+      var es=num(r.elec_start), ee=num(r.elec_end), hs=num(r.hour_start), he=num(r.hour_end);
+      var eCell=(k!=null?rnd(k,1)+' kWh':'—')+((!isAuto&&(es!=null||ee!=null))?'<br><span class="muted" style="font-size:9px">'+(es!=null?es:'—')+'→'+(ee!=null?ee:'—')+(r.machine_id==="GRD_O"?' ×3':'')+'</span>':'')+(num(r.firewood_kg)!=null?'<br><span class="muted" style="font-size:9px">'+num(r.firewood_kg)+' fw</span>':'');
+      var rCell=fmtH(h)+((!isAuto&&(hs!=null||he!=null))?'<br><span class="muted" style="font-size:9px">hr '+(hs!=null?hs:'—')+'→'+(he!=null?he:'—')+'</span>':'');
       var wCell=(w!=null?esc(w)+' kg':'—');
       return '<tr data-run="'+esc(r.id)+'" style="cursor:pointer"><td>'+when+'</td><td>'+mCell+'</td><td>'+bq+'</td><td class="tnum">'+rCell+'</td><td class="tnum">'+eCell+'</td><td class="tnum">'+(num(r.workers)!=null?num(r.workers):'—')+'</td><td class="tnum">'+wCell+'</td></tr>';
     }).join("");
@@ -348,6 +361,65 @@
     html+='<div class="grouphead">Grinding line · '+esc(fmtDay(S.effDate))+' · '+esc(S.effShift)+' shift</div>'+effGrind(S.effDate,S.effShift);
     return html;
   }
+  /* ===================== Rates (open to everyone) ===================== */
+  function rInput(id,label,unit,hint){
+    var v=(S.rates&&S.rates[id]!=null)?S.rates[id]:"";
+    return '<div class="field"><label>'+esc(label)+(unit?' <span class="muted" style="font-weight:400">('+esc(unit)+')</span>':'')+'</label>'+
+      '<input id="rt-'+id+'" type="number" inputmode="decimal" value="'+esc(v)+'" placeholder="0">'+
+      (hint?'<div class="sub" style="margin-top:3px">'+esc(hint)+'</div>':'')+'</div>';
+  }
+  function ratesView(){
+    return '<div class="view-head" style="padding:0 2px"><h1 style="font-size:18px;margin:0">Rates</h1>'+
+      '<div class="sub">Used by the Costing view. Anyone can update these.</div></div>'+
+      '<div class="panel"><div class="grouphead" style="margin-top:0">Raw materials</div>'+
+        rInput("crumbTruckPerKg","Rubber crumb — Truck","\u20b9/kg")+
+        rInput("crumbBikePerKg","Rubber crumb — Bike","\u20b9/kg")+
+        rInput("crumbDrcPerKg","Rubber crumb — DRC","\u20b9/kg")+
+        rInput("raPerKg","Reclaiming agent (RA)","\u20b9/kg")+
+        rInput("rpoPerKg","Rubber processing oil (RPO)","\u20b9/kg")+
+        rInput("pineTarPerKg","Pine tar","\u20b9/kg")+
+        rInput("waterPerL","Water","\u20b9/L")+
+      '</div>'+
+      '<div class="panel"><div class="grouphead" style="margin-top:0">Packing &amp; loading</div>'+
+        rInput("packLabourPerSack","Packing labour","\u20b9/sack","Costed per kg at 50 kg/sack")+
+        rInput("packMaterialPerSack","Packing raw material","\u20b9/sack","Costed per kg at 50 kg/sack")+
+        rInput("loadingPerKg","Loading labour","\u20b9/kg")+
+      '</div>'+
+      '<div class="panel"><div class="grouphead" style="margin-top:0">Transport <span class="muted" style="font-weight:400">(only when provided)</span></div>'+
+        rInput("transDriverPerKg","Driver cost","\u20b9/kg")+
+        rInput("transVehiclePerKm","Vehicle cost","\u20b9/km","\u00d7 distance entered at dispatch")+
+        rInput("transFuelPerKm","Fuel cost","\u20b9/km","\u00d7 distance entered at dispatch")+
+      '</div>'+
+      '<div class="panel"><div class="grouphead" style="margin-top:0">Energy &amp; fuel</div>'+
+        rInput("firewoodPerKg","Firewood","\u20b9/kg","\u00d7 firewood kg per autoclave load")+
+        rInput("refinerKwhRate","Refiner electricity","\u20b9/kWh","Refiner processing energy \u2014 confirm if you want it costed this way")+
+      '</div>'+
+      '<div class="panel"><div class="grouphead" style="margin-top:0">Overheads &amp; interest</div>'+
+        rInput("ohFinancialPerMonth","Financial overhead","\u20b9/month")+
+        rInput("ohManufacturingPerMonth","Manufacturing overhead","\u20b9/month")+
+        rInput("ohDepreciationPerMonth","Depreciation","\u20b9/month","Annual \u00f7 12")+
+        rInput("interestPctPerAnnum","Interest","% per annum","On value held in plant, production \u2192 dispatch")+
+      '</div>'+
+      '<button class="btn primary block" id="rt-save" style="margin-top:4px">Save rates</button>'+
+      '<div class="sub" style="text-align:center;margin-top:8px">Saved figures load automatically for everyone.</div>';
+  }
+  var RATE_IDS=["crumbTruckPerKg","crumbBikePerKg","crumbDrcPerKg","raPerKg","rpoPerKg","pineTarPerKg","waterPerL",
+    "packLabourPerSack","packMaterialPerSack","loadingPerKg","transDriverPerKg","transVehiclePerKm","transFuelPerKm",
+    "firewoodPerKg","refinerKwhRate","ohFinancialPerMonth","ohManufacturingPerMonth","ohDepreciationPerMonth","interestPctPerAnnum"];
+
+  /* ===================== Costing (password 2525) ===================== */
+  function costView(){
+    if(!S.costPwOk){
+      return '<div class="panel" style="max-width:340px;margin:30px auto"><div class="grouphead" style="margin-top:0">\ud83d\udd12 Costing is locked</div>'+
+        '<div class="field"><label>Enter password</label><input id="cost-pw" type="password" inputmode="numeric" placeholder="\u2022\u2022\u2022\u2022"></div>'+
+        '<button class="btn primary block" id="cost-unlock">Unlock</button></div>';
+    }
+    return '<div class="view-head" style="padding:0 2px"><h1 style="font-size:18px;margin:0">Costing</h1>'+
+      '<div class="sub">Per-kg reclaim cost by batch &amp; grade.</div></div>'+
+      '<div class="panel"><div class="sub">This view is being built next. It is fed by the Rates above and by the new capture fields (autoclave raw materials and dispatch transport). '+
+      'Before computing money figures you\u2019ll rely on, a few method points need confirming \u2014 see the chat.</div></div>';
+  }
+
   var CALC_SEQ=0, CALCS={};
   function metricRow(label, valTxt, baseTxt, warn, calcHtml){
     var attr="", hint="";
@@ -390,8 +462,11 @@
     }
     rows+=roRow("Run time", fmtH(h)+(r.runtime_min!=null&&r.runtime_min!==""?' <span class="muted">· '+r.runtime_min+' min</span>':''));
     if(!isAuto){
-      if(r.elec_start!=null||r.elec_end!=null) rows+=roRow("Electricity meter", (r.elec_start!=null?esc(r.elec_start):'—')+' → '+(r.elec_end!=null?esc(r.elec_end):'—')+(r.machine_id==="GRD_O"?' <span class="muted">(TOD ×3)</span>':''));
-      if(r.hour_start!=null||r.hour_end!=null) rows+=roRow("Hour meter", (r.hour_start!=null?esc(r.hour_start):'—')+' → '+(r.hour_end!=null?esc(r.hour_end):'—'));
+      var es=num(r.elec_start), ee=num(r.elec_end);
+      if(es!=null||ee!=null) rows+=roRow("Electricity meter", (es!=null?es:'—')+' → '+(ee!=null?ee:'—')+(r.machine_id==="GRD_O"?' <span class="muted">(TOD ×3)</span>':''));
+      else if(num(r.kwh)!=null) rows+=roRow("Electricity", '<span class="muted">difference entered directly</span>');
+      var hs=num(r.hour_start), he=num(r.hour_end);
+      if(hs!=null||he!=null) rows+=roRow("Hour meter", (hs!=null?hs:'—')+' → '+(he!=null?he:'—'));
     }
     if(k!=null) rows+=roRow("Energy", rnd(k,1)+' kWh'+(h&&h>0?' <span class="muted">· '+rnd(k/h,1)+' kWh/h</span>':''));
     if(num(r.firewood_kg)!=null) rows+=roRow("Firewood", num(r.firewood_kg)+' kg');
@@ -660,6 +735,16 @@
     view.querySelectorAll("[data-effnote]").forEach(function(el){ el.onclick=function(){ var p=el.getAttribute("data-effnote").split("|"); openReasonModal(p[0],p[1],p[2],p[3]); }; });
     view.querySelectorAll("[data-calc]").forEach(function(el){ el.onclick=function(){ openCalcModal(CALCS[el.getAttribute("data-calc")]||""); }; });
     view.querySelectorAll("[data-run]").forEach(function(el){ el.onclick=function(){ openRunModal(runById(el.getAttribute("data-run"))); }; });
+    var rs=document.getElementById("rt-save"); if(rs) rs.onclick=function(){
+      var data={}; RATE_IDS.forEach(function(id){ var el=document.getElementById("rt-"+id); if(el){ var v=el.value===""?0:parseFloat(el.value); data[id]=isNaN(v)?0:v; } });
+      rs.disabled=true; rs.textContent="Saving\u2026";
+      saveRates(data).then(function(){ S.rates=data; rs.textContent="Saved \u2713"; setTimeout(function(){ rs.disabled=false; rs.textContent="Save rates"; },1200); })
+        .catch(function(e){ rs.disabled=false; rs.textContent="Save rates"; alert("Couldn't save: "+(e&&e.message||e)); });
+    };
+    var cu=document.getElementById("cost-unlock"); if(cu) cu.onclick=function(){
+      var pw=(document.getElementById("cost-pw")||{}).value||"";
+      if(pw==="2525"){ S.costPwOk=true; render(); } else { alert("Wrong password"); }
+    };
   }
   document.querySelectorAll(".tab").forEach(function(t){ t.onclick=function(){ S.tab=t.getAttribute("data-tab"); render(); window.scrollTo(0,0); }; });
   document.getElementById("refresh").onclick=loadAll;
